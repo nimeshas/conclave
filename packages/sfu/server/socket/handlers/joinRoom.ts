@@ -125,7 +125,12 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
           return;
         }
 
-        if (clientPolicy.useWaitingRoom && !isHost && !room.isAllowed(userKey)) {
+        if (
+          clientPolicy.useWaitingRoom &&
+          !isHost &&
+          !room.isAllowed(userKey) &&
+          !(room.isLocked && room.isLockedAllowed(userKey))
+        ) {
           Logger.info(`User ${userKey} added to waiting room ${roomId}`);
           room.addPendingClient(userKey, userId, socket, displayName);
           context.pendingRoomId = roomId;
@@ -253,6 +258,11 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
           users: context.currentRoom.getHandRaisedSnapshot(),
           roomId: context.currentRoom.id,
         } satisfies HandRaisedSnapshot & { roomId: string });
+
+        socket.emit("roomLockChanged", {
+          locked: context.currentRoom.isLocked,
+          roomId: context.currentRoom.id,
+        });
 
         const newQuality = context.currentRoom.updateVideoQuality();
         if (newQuality) {

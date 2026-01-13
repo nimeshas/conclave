@@ -76,6 +76,10 @@ export const registerDisconnectHandlers = (
                 users: pendingUsers,
                 roomId,
               });
+              promoted.socket.emit("roomLockChanged", {
+                locked: context.currentRoom.isLocked,
+                roomId,
+              });
               promoted.socket.emit("hostAssigned", { roomId });
               if (context.currentRoom.pendingClients.size > 0) {
                 for (const pending of context.currentRoom.pendingClients.values()) {
