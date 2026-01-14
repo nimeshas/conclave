@@ -437,7 +437,7 @@ export default function MeetsClient({
         className={`flex flex-col h-dvh w-full bg-[#0d0e0d] text-white ${roboto.className}`}
         style={{ fontFamily: "'Roboto', sans-serif" }}
       >
-        {meetError && (
+        {isJoined && meetError && (
           <MeetsErrorBanner
             meetError={meetError}
             onDismiss={() => setMeetError(null)}
@@ -511,6 +511,8 @@ export default function MeetsClient({
           onClearBrowserError={clearBrowserError}
           isBrowserAudioMuted={isBrowserAudioMuted}
           onToggleBrowserAudio={toggleBrowserAudio}
+          meetError={meetError}
+          onDismissMeetError={() => setMeetError(null)}
         />
       </div>
     );
@@ -546,7 +548,7 @@ export default function MeetsClient({
         isSigningOut={isSigningOut}
         onSignOut={handleSignOut}
       />
-      {meetError && (
+      {isJoined && meetError && (
         <MeetsErrorBanner
           meetError={meetError}
           onDismiss={() => setMeetError(null)}
@@ -624,6 +626,8 @@ export default function MeetsClient({
         onClearBrowserError={clearBrowserError}
         isBrowserAudioMuted={isBrowserAudioMuted}
         onToggleBrowserAudio={toggleBrowserAudio}
+        meetError={meetError}
+        onDismissMeetError={() => setMeetError(null)}
       />
     </div>
   );

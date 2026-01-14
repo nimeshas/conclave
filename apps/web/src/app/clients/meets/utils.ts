@@ -63,7 +63,10 @@ const ROOM_WORDS = [
 ];
 
 const ROOM_WORDS_PER_CODE = 3;
-const ROOM_WORD_MAX_LENGTH = 5;
+const ROOM_WORD_MAX_LENGTH = ROOM_WORDS.reduce(
+  (max, word) => Math.max(max, word.length),
+  0
+);
 const ROOM_WORD_SEPARATOR = "-";
 export const ROOM_CODE_MAX_LENGTH =
   ROOM_WORDS_PER_CODE * ROOM_WORD_MAX_LENGTH + (ROOM_WORDS_PER_CODE - 1);
@@ -90,6 +93,26 @@ export function sanitizeRoomCode(value: string): string {
     .slice(0, ROOM_WORDS_PER_CODE)
     .map((word) => word.slice(0, ROOM_WORD_MAX_LENGTH));
   return words.join(ROOM_WORD_SEPARATOR);
+}
+
+export function extractRoomCode(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+
+  try {
+    const parsed = new URL(trimmed);
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const lastSegment = parts[parts.length - 1] || "";
+    return sanitizeRoomCode(lastSegment);
+  } catch {
+    if (trimmed.includes("/")) {
+      const parts = trimmed.split("/").filter(Boolean);
+      const lastSegment = parts[parts.length - 1] || "";
+      return sanitizeRoomCode(lastSegment);
+    }
+  }
+
+  return sanitizeRoomCode(trimmed);
 }
 
 export function createMeetError(

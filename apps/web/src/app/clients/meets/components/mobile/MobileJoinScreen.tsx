@@ -12,12 +12,14 @@ import {
 } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { signIn, signOut, useSession } from "@/lib/auth-client";
-import type { ConnectionState } from "../../types";
+import type { ConnectionState, MeetError } from "../../types";
 import {
   generateRoomCode,
   ROOM_CODE_MAX_LENGTH,
+  extractRoomCode,
   sanitizeRoomCode,
 } from "../../utils";
+import MeetsErrorBanner from "../MeetsErrorBanner";
 
 interface MobileJoinScreenProps {
   roomId: string;
@@ -43,6 +45,8 @@ interface MobileJoinScreenProps {
   onGhostModeChange: (value: boolean) => void;
   onUserChange: (user: { id: string; email: string; name: string } | null) => void;
   onIsAdminChange: (isAdmin: boolean) => void;
+  meetError?: MeetError | null;
+  onDismissMeetError?: () => void;
 }
 
 function MobileJoinScreen({
@@ -65,6 +69,8 @@ function MobileJoinScreen({
   onGhostModeChange,
   onUserChange,
   onIsAdminChange,
+  meetError,
+  onDismissMeetError,
 }: MobileJoinScreenProps) {
   const normalizedRoomId =
     roomId === "undefined" || roomId === "null" ? "" : roomId;
@@ -547,16 +553,31 @@ function MobileJoinScreen({
                     : e.target.value
                 )
               }
-              placeholder="e.g. aster-lotus-nami"
+              placeholder="Paste room link or code"
               maxLength={enforceShortCode ? ROOM_CODE_MAX_LENGTH : undefined}
               disabled={isLoading}
               readOnly={isRoutedRoom}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:border-[#F95F4A]/50 focus:outline-none"
               style={{ fontFamily: "'PolySans Trial', sans-serif" }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && canJoin) onJoin();
               }}
+              onPaste={(event) => {
+                const text = event.clipboardData.getData("text");
+                if (!text) return;
+                const extracted = extractRoomCode(text);
+                if (extracted) {
+                  event.preventDefault();
+                  onRoomIdChange(extracted);
+                }
+              }}
             />
+            <p className="text-[11px] text-[#FEFCD9]/40">
+              We’ll auto-detect the room code from any invite link.
+            </p>
             <button
               onClick={onJoin}
               disabled={!canJoin || isLoading}
@@ -569,6 +590,15 @@ function MobileJoinScreen({
               )}
               <span className="text-sm font-medium" style={{ fontFamily: "'PolySans Trial', sans-serif" }}>Join Meeting</span>
             </button>
+          </div>
+        )}
+
+        {meetError && onDismissMeetError && (
+          <div className="mt-4">
+            <MeetsErrorBanner
+              meetError={meetError}
+              onDismiss={onDismissMeetError}
+            />
           </div>
         )}
       </div>

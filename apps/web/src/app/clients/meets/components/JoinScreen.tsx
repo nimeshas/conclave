@@ -16,12 +16,14 @@ import {
 import { memo, useEffect, useRef, useState } from "react";
 import { signIn, useSession } from "@/lib/auth-client";
 import type { RoomInfo } from "@/lib/sfu-types";
-import type { ConnectionState } from "../types";
+import type { ConnectionState, MeetError } from "../types";
 import {
   generateRoomCode,
   ROOM_CODE_MAX_LENGTH,
+  extractRoomCode,
   sanitizeRoomCode,
 } from "../utils";
+import MeetsErrorBanner from "./MeetsErrorBanner";
 
 interface JoinScreenProps {
   roomId: string;
@@ -50,6 +52,8 @@ interface JoinScreenProps {
   onGhostModeChange: (value: boolean) => void;
   onUserChange: (user: { id: string; email: string; name: string } | null) => void;
   onIsAdminChange: (isAdmin: boolean) => void;
+  meetError?: MeetError | null;
+  onDismissMeetError?: () => void;
 }
 
 function JoinScreen({
@@ -75,6 +79,8 @@ function JoinScreen({
   onGhostModeChange,
   onUserChange,
   onIsAdminChange,
+  meetError,
+  onDismissMeetError,
 }: JoinScreenProps) {
   const normalizedRoomId =
     roomId === "undefined" || roomId === "null" ? "" : roomId;
@@ -544,13 +550,28 @@ function JoinScreen({
                               : e.target.value
                           )
                         }
-                        placeholder="e.g. aster-lotus-nami"
+                        placeholder="Paste room link or code"
                         maxLength={enforceShortCode ? ROOM_CODE_MAX_LENGTH : undefined}
                         disabled={isLoading}
                         readOnly={isRoutedRoom}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
                         className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:border-[#F95F4A]/50 focus:outline-none"
                         onKeyDown={(e) => { if (e.key === "Enter" && canJoin) onJoin(); }}
+                        onPaste={(event) => {
+                          const text = event.clipboardData.getData("text");
+                          if (!text) return;
+                          const extracted = extractRoomCode(text);
+                          if (extracted) {
+                            event.preventDefault();
+                            onRoomIdChange(extracted);
+                          }
+                        }}
                       />
+                      <p className="mt-1 text-[11px] text-[#FEFCD9]/40">
+                        We’ll auto-detect the room code from any invite link.
+                      </p>
                     </div>
                     {isAdmin && allowGhostMode && (
                       <div>
@@ -583,6 +604,14 @@ function JoinScreen({
                   <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F95F4A]/10 border border-[#F95F4A]/20 text-xs text-[#FEFCD9]/70 animate-slide-up">
                     <AlertCircle className="w-3.5 h-3.5 text-[#F95F4A]" />
                     <span>Please allow camera and microphone access to join</span>
+                  </div>
+                )}
+                {meetError && onDismissMeetError && (
+                  <div className="mt-4">
+                    <MeetsErrorBanner
+                      meetError={meetError}
+                      onDismiss={onDismissMeetError}
+                    />
                   </div>
                 )}
               </div>

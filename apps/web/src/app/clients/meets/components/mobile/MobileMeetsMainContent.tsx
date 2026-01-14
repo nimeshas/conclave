@@ -8,6 +8,7 @@ import type { RoomInfo } from "@/lib/sfu-types";
 import type {
   ChatMessage,
   ConnectionState,
+  MeetError,
   Participant,
   ReactionEvent,
   ReactionOption,
@@ -97,6 +98,8 @@ interface MobileMeetsMainContentProps {
   onClearBrowserError?: () => void;
   isBrowserAudioMuted: boolean;
   onToggleBrowserAudio: () => void;
+  meetError?: MeetError | null;
+  onDismissMeetError?: () => void;
 }
 
 function MobileMeetsMainContent({
@@ -167,6 +170,8 @@ function MobileMeetsMainContent({
   onClearBrowserError,
   isBrowserAudioMuted,
   onToggleBrowserAudio,
+  meetError,
+  onDismissMeetError,
 }: MobileMeetsMainContentProps) {
   const handleToggleParticipants = useCallback(
     () => setIsParticipantsOpen((prev) => !prev),
@@ -215,6 +220,8 @@ function MobileMeetsMainContent({
         onGhostModeChange={setIsGhostMode}
         onUserChange={onUserChange}
         onIsAdminChange={onIsAdminChange}
+        meetError={meetError}
+        onDismissMeetError={onDismissMeetError}
       />
     );
   }

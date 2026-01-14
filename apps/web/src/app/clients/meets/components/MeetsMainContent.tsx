@@ -21,6 +21,7 @@ import type { ParticipantsPanelGetRooms } from "./ParticipantsPanel";
 import type {
   ChatMessage,
   ConnectionState,
+  MeetError,
   Participant,
   ReactionEvent,
   ReactionOption,
@@ -104,6 +105,8 @@ interface MeetsMainContentProps {
   onClearBrowserError?: () => void;
   isBrowserAudioMuted: boolean;
   onToggleBrowserAudio: () => void;
+  meetError?: MeetError | null;
+  onDismissMeetError?: () => void;
 }
 
 export default function MeetsMainContent({
@@ -179,6 +182,8 @@ export default function MeetsMainContent({
   onClearBrowserError,
   isBrowserAudioMuted,
   onToggleBrowserAudio,
+  meetError,
+  onDismissMeetError,
 }: MeetsMainContentProps) {
   const handleToggleParticipants = useCallback(
     () => setIsParticipantsOpen((prev) => !prev),
@@ -246,6 +251,8 @@ export default function MeetsMainContent({
           onGhostModeChange={setIsGhostMode}
           onUserChange={onUserChange}
           onIsAdminChange={onIsAdminChange}
+          meetError={meetError}
+          onDismissMeetError={onDismissMeetError}
         />
       ) : browserState?.active && browserState.noVncUrl ? (
         <BrowserLayout
