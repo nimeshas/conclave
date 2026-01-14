@@ -8,6 +8,7 @@ start_chromium() {
         --disable-software-rasterizer \
         --disable-dev-shm-usage \
         --no-first-run \
+        --autoplay-policy=no-user-gesture-required \
         --disable-background-networking \
         --disable-sync \
         --disable-translate \

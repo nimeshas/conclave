@@ -3,6 +3,7 @@
 import {
   Globe,
   Hand,
+  LayoutGrid,
   Loader2,
   Lock,
   LockOpen,
@@ -11,6 +12,12 @@ import {
   MicOff,
   Monitor,
   Phone,
+  PlaySquare,
+  Presentation,
+  Sparkles,
+  StickyNote,
+  Trello,
+  Youtube,
   Smile,
   Users,
   Video,
@@ -49,6 +56,72 @@ interface ControlsBarProps {
   onLaunchBrowser?: (url: string) => Promise<boolean>;
   onCloseBrowser?: () => Promise<boolean>;
 }
+
+const BROWSER_APPS = [
+  {
+    id: "figma",
+    name: "Figma",
+    description: "Design board",
+    url: "https://www.figma.com",
+    icon: LayoutGrid,
+    accent: "from-pink-500/20 to-purple-500/20",
+    iconClass: "text-pink-200",
+  },
+  {
+    id: "miro",
+    name: "Miro",
+    description: "Whiteboard",
+    url: "https://miro.com",
+    icon: Presentation,
+    accent: "from-yellow-500/20 to-orange-500/20",
+    iconClass: "text-yellow-200",
+  },
+  {
+    id: "notion",
+    name: "Notion",
+    description: "Docs + tasks",
+    url: "https://www.notion.so",
+    icon: StickyNote,
+    accent: "from-zinc-500/20 to-stone-500/20",
+    iconClass: "text-[#FEFCD9]/80",
+  },
+  {
+    id: "google-docs",
+    name: "Docs",
+    description: "Write together",
+    url: "https://docs.google.com",
+    icon: Sparkles,
+    accent: "from-blue-500/20 to-cyan-500/20",
+    iconClass: "text-blue-200",
+  },
+  {
+    id: "trello",
+    name: "Trello",
+    description: "Kanban board",
+    url: "https://trello.com",
+    icon: Trello,
+    accent: "from-sky-500/20 to-blue-600/20",
+    iconClass: "text-sky-200",
+  },
+  {
+    id: "youtube",
+    name: "YouTube",
+    description: "Video watch",
+    url: "https://www.youtube.com",
+    icon: Youtube,
+    accent: "from-red-500/20 to-rose-500/20",
+    iconClass: "text-red-200",
+  },
+  {
+    id: "loom",
+    name: "Loom",
+    description: "Quick demo",
+    url: "https://www.loom.com",
+    icon: PlaySquare,
+    accent: "from-violet-500/20 to-fuchsia-500/20",
+    iconClass: "text-fuchsia-200",
+  },
+];
 
 function ControlsBar({
   isMuted,
@@ -110,6 +183,22 @@ function ControlsBar({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isReactionMenuOpen]);
+
+  useEffect(() => {
+    if (!isBrowserMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        browserMenuRef.current &&
+        !browserMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsBrowserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isBrowserMenuOpen]);
 
   const handleReactionClick = useCallback(
     (reaction: ReactionOption) => {
@@ -242,16 +331,21 @@ function ControlsBar({
 
           {isBrowserMenuOpen && !isBrowserActive && (
             <div
-              className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#0d0e0d]/98 backdrop-blur-md border border-[#FEFCD9]/10 rounded-xl p-3 shadow-2xl z-50 min-w-[280px]"
+              className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#0d0e0d]/98 backdrop-blur-md border border-[#FEFCD9]/10 rounded-xl p-4 shadow-2xl z-50 min-w-[360px]"
               style={{ fontFamily: "'PolySans Trial', sans-serif" }}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span
-                  className="text-[10px] uppercase tracking-[0.12em] text-[#FEFCD9]/50"
-                  style={{ fontFamily: "'PolySans Mono', monospace" }}
-                >
-                  Launch Browser
-                </span>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <span
+                    className="text-[10px] uppercase tracking-[0.12em] text-[#FEFCD9]/50"
+                    style={{ fontFamily: "'PolySans Mono', monospace" }}
+                  >
+                    Apps & Browser
+                  </span>
+                  <p className="text-xs text-[#FEFCD9]/60 mt-1">
+                    One click launch shared apps.
+                  </p>
+                </div>
                 <button
                   onClick={() => setIsBrowserMenuOpen(false)}
                   className="w-5 h-5 rounded flex items-center justify-center text-[#FEFCD9]/40 hover:text-[#FEFCD9] hover:bg-[#FEFCD9]/10"
@@ -259,43 +353,83 @@ function ControlsBar({
                   <X className="w-3 h-3" />
                 </button>
               </div>
-              <form
-                onSubmit={async (e: FormEvent) => {
-                  e.preventDefault();
-                  if (!browserUrlInput.trim()) return;
-                  const normalized = normalizeBrowserUrl(browserUrlInput);
-                  if (!normalized.url) {
-                    setBrowserUrlError(normalized.error ?? "Enter a valid URL.");
-                    return;
-                  }
-                  setBrowserUrlError(null);
-                  setBrowserUrlInput("");
-                  setIsBrowserMenuOpen(false);
-                  await onLaunchBrowser(normalized.url);
-                }}
-                className="flex gap-2"
-              >
-                <input
-                  type="text"
-                  value={browserUrlInput}
-                  onChange={(e) => {
-                    setBrowserUrlInput(e.target.value);
-                    if (browserUrlError) {
-                      setBrowserUrlError(null);
+              <div className="grid grid-cols-2 gap-2">
+                {BROWSER_APPS.map((app) => {
+                  const Icon = app.icon;
+                  return (
+                    <button
+                      key={app.id}
+                      type="button"
+                      disabled={isBrowserLaunching}
+                      onClick={async () => {
+                        const normalized = normalizeBrowserUrl(app.url);
+                        if (!normalized.url) {
+                          setBrowserUrlError(normalized.error ?? "Enter a valid URL.");
+                          return;
+                        }
+                        setBrowserUrlError(null);
+                        setBrowserUrlInput("");
+                        setIsBrowserMenuOpen(false);
+                        await onLaunchBrowser(normalized.url);
+                      }}
+                      className="group flex items-center gap-2 rounded-lg border border-[#FEFCD9]/10 bg-black/40 p-2 text-left transition hover:border-[#FEFCD9]/25 hover:bg-[#FEFCD9]/5 disabled:opacity-40"
+                    >
+                      <div
+                        className={`h-9 w-9 rounded-lg bg-gradient-to-br ${app.accent} flex items-center justify-center`}
+                      >
+                        <Icon className={`h-4 w-4 ${app.iconClass}`} />
+                      </div>
+                      <div>
+                        <div className="text-xs text-[#FEFCD9] font-medium">
+                          {app.name}
+                        </div>
+                        <div className="text-[11px] text-[#FEFCD9]/45">
+                          {app.description}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3 pt-3 border-t border-[#FEFCD9]/10">
+                <form
+                  onSubmit={async (e: FormEvent) => {
+                    e.preventDefault();
+                    if (!browserUrlInput.trim()) return;
+                    const normalized = normalizeBrowserUrl(browserUrlInput);
+                    if (!normalized.url) {
+                      setBrowserUrlError(normalized.error ?? "Enter a valid URL.");
+                      return;
                     }
+                    setBrowserUrlError(null);
+                    setBrowserUrlInput("");
+                    setIsBrowserMenuOpen(false);
+                    await onLaunchBrowser(normalized.url);
                   }}
-                  placeholder="youtube.com"
-                  autoFocus
-                  className="flex-1 px-3 py-1.5 bg-black/40 border border-[#FEFCD9]/10 rounded-lg text-xs text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:outline-none focus:border-[#FEFCD9]/25"
-                />
-                <button
-                  type="submit"
-                  disabled={!browserUrlInput.trim()}
-                  className="px-3 py-1.5 bg-[#F95F4A] text-white rounded-lg text-xs font-medium hover:bg-[#F95F4A]/90 disabled:opacity-40"
+                  className="flex gap-2"
                 >
-                  Go
-                </button>
-              </form>
+                  <input
+                    type="text"
+                    value={browserUrlInput}
+                    onChange={(e) => {
+                      setBrowserUrlInput(e.target.value);
+                      if (browserUrlError) {
+                        setBrowserUrlError(null);
+                      }
+                    }}
+                    placeholder="Paste a URL"
+                    autoFocus
+                    className="flex-1 px-3 py-1.5 bg-black/40 border border-[#FEFCD9]/10 rounded-lg text-xs text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:outline-none focus:border-[#FEFCD9]/25"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!browserUrlInput.trim() || isBrowserLaunching}
+                    className="px-3 py-1.5 bg-[#F95F4A] text-white rounded-lg text-xs font-medium hover:bg-[#F95F4A]/90 disabled:opacity-40"
+                  >
+                    Go
+                  </button>
+                </form>
+              </div>
               {browserUrlError && (
                 <p className="mt-2 text-[11px] text-[#F95F4A]">
                   {browserUrlError}

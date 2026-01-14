@@ -4,6 +4,7 @@ import { Ghost, Hand, MicOff, X } from "lucide-react";
 import { memo } from "react";
 import type { Socket } from "socket.io-client";
 import type { Participant } from "../../types";
+import { isSystemUserId } from "../../utils";
 
 interface MobileParticipantsPanelProps {
   participants: Map<string, Participant>;
@@ -24,7 +25,9 @@ function MobileParticipantsPanel({
   pendingUsers,
   getDisplayName,
 }: MobileParticipantsPanelProps) {
-  const participantArray = Array.from(participants.values());
+  const participantArray = Array.from(participants.values()).filter(
+    (participant) => !isSystemUserId(participant.userId)
+  );
   const pendingArray = Array.from(pendingUsers.entries());
 
   const handleAdmit = (userId: string) => {

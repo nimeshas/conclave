@@ -1,5 +1,7 @@
 import type {
   MediaKind,
+  PlainTransport,
+  Producer,
   Router,
   RtpCapabilities,
   WebRtcTransport,
@@ -9,6 +11,7 @@ import { Logger } from "../../utilities/loggers.js";
 import { config } from "../config.js";
 import { Admin } from "./Admin.js";
 import type { Client } from "./Client.js";
+import type { ProducerType } from "./Client.js";
 
 export interface RoomOptions {
   id: string;
@@ -36,6 +39,10 @@ export class Room {
   public cleanupTimer: NodeJS.Timeout | null = null;
   public hostUserKey: string | null = null;
   private _isLocked: boolean = false;
+  private systemProducers: Map<
+    string,
+    { producer: Producer; userId: string; type: ProducerType }
+  > = new Map();
 
   constructor(options: RoomOptions) {
     this.id = options.id;
@@ -157,6 +164,19 @@ export class Room {
     return transport;
   }
 
+  async createPlainTransport(): Promise<PlainTransport> {
+    const transport = await this.router.createPlainTransport({
+      listenIp: {
+        ip: config.plainTransport.listenIp,
+        announcedIp: config.plainTransport.announcedIp || undefined,
+      },
+      rtcpMux: true,
+      comedia: true,
+    });
+
+    return transport;
+  }
+
   get screenShareProducerId(): string | null {
     return this.currentScreenShareProducerId;
   }
@@ -204,7 +224,36 @@ export class Room {
       }
     }
 
+    for (const { producer, userId, type } of this.systemProducers.values()) {
+      producers.push({
+        producerId: producer.id,
+        producerUserId: userId,
+        kind: producer.kind,
+        type,
+        paused: producer.paused,
+      });
+    }
+
     return producers;
+  }
+
+  addSystemProducer(
+    producer: Producer,
+    userId: string,
+    type: ProducerType,
+  ): void {
+    this.systemProducers.set(producer.id, { producer, userId, type });
+
+    const cleanup = () => {
+      this.systemProducers.delete(producer.id);
+    };
+
+    producer.on("transportclose", cleanup);
+    producer.observer.on("close", cleanup);
+  }
+
+  removeSystemProducerById(producerId: string): void {
+    this.systemProducers.delete(producerId);
   }
 
   canConsume(producerId: string, rtpCapabilities: RtpCapabilities): boolean {

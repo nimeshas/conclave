@@ -89,7 +89,7 @@ export class ContainerManager {
     }
 
     async launchBrowser(options: LaunchBrowserOptions): Promise<LaunchBrowserResult> {
-        const { roomId, url, controllerUserId } = options;
+        const { roomId, url, controllerUserId, audioTarget } = options;
 
         if (this.sessions.has(roomId)) {
             return {
@@ -108,13 +108,22 @@ export class ContainerManager {
 
         try {
             const containerName = `conclave-browser-${this.sanitizeContainerName(roomId)}`;
+            const containerEnv = [
+                `START_URL=${url}`,
+                "RESOLUTION=1280x720x24",
+            ];
+
+            if (audioTarget?.ip && audioTarget?.port) {
+                containerEnv.push(`AUDIO_TARGET_IP=${audioTarget.ip}`);
+                containerEnv.push(`AUDIO_TARGET_PORT=${audioTarget.port}`);
+                containerEnv.push(`AUDIO_PAYLOAD_TYPE=${audioTarget.payloadType}`);
+                containerEnv.push(`AUDIO_SSRC=${audioTarget.ssrc}`);
+            }
+
             const container = await this.docker.createContainer({
                 Image: this.config.dockerImageName,
                 name: containerName,
-                Env: [
-                    `START_URL=${url}`,
-                    "RESOLUTION=1280x720x24",
-                ],
+                Env: containerEnv,
                 HostConfig: {
                     PortBindings: {
                         "6080/tcp": [{ HostPort: port.toString() }],
@@ -137,6 +146,7 @@ export class ContainerManager {
                 currentUrl: url,
                 createdAt: new Date(),
                 controllerUserId,
+                audioTarget: audioTarget ?? undefined,
             };
 
             this.sessions.set(roomId, session);
@@ -159,7 +169,7 @@ export class ContainerManager {
     }
 
     async navigateTo(options: NavigateOptions): Promise<LaunchBrowserResult> {
-        const { roomId, url } = options;
+        const { roomId, url, audioTarget } = options;
         const session = this.sessions.get(roomId);
 
         if (!session) {
@@ -172,7 +182,7 @@ export class ContainerManager {
         const controllerUserId = session.controllerUserId;
 
         await this.closeBrowser(roomId);
-        return this.launchBrowser({ roomId, url, controllerUserId });
+        return this.launchBrowser({ roomId, url, controllerUserId, audioTarget });
     }
 
     async closeBrowser(roomId: string): Promise<{ success: boolean; error?: string }> {

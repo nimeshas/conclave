@@ -3,6 +3,7 @@
 import { Ghost, MicOff } from "lucide-react";
 import { memo, useEffect, useRef } from "react";
 import type { Participant } from "../../types";
+import { isSystemUserId } from "../../utils";
 
 interface MobilePresentationLayoutProps {
   presentationStream: MediaStream;
@@ -61,7 +62,9 @@ function MobilePresentationLayout({
     }
   }, [localStream]);
 
-  const participantArray = Array.from(participants.values());
+  const participantArray = Array.from(participants.values()).filter(
+    (participant) => !isSystemUserId(participant.userId)
+  );
 
   return (
     <div className="flex flex-col w-full h-full p-2 gap-2">

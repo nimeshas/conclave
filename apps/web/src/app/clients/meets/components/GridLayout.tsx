@@ -3,7 +3,7 @@
 import { Ghost, Hand, MicOff } from "lucide-react";
 import { memo, useEffect, useRef } from "react";
 import type { Participant } from "../types";
-import { getSpeakerHighlightClasses } from "../utils";
+import { getSpeakerHighlightClasses, isSystemUserId } from "../utils";
 import ParticipantVideo from "./ParticipantVideo";
 
 interface GridLayoutProps {
@@ -56,7 +56,10 @@ function GridLayout({
     }
   }, [localStream]);
 
-  const totalParticipants = participants.size + 1;
+  const visibleParticipants = Array.from(participants.values()).filter(
+    (participant) => !isSystemUserId(participant.userId)
+  );
+  const totalParticipants = visibleParticipants.length + 1;
 
   const localDisplayName = getDisplayName(currentUserId);
 
@@ -137,7 +140,7 @@ function GridLayout({
         </div>
       </div>
 
-      {Array.from(participants.values()).map((participant) => (
+      {visibleParticipants.map((participant) => (
         <ParticipantVideo
           key={participant.userId}
           participant={participant}

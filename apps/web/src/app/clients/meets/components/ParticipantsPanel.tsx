@@ -18,7 +18,7 @@ import { memo, useState } from "react";
 import type { Socket } from "socket.io-client";
 import type { RoomInfo } from "@/lib/sfu-types";
 import type { Participant } from "../types";
-import { formatDisplayName } from "../utils";
+import { formatDisplayName, isSystemUserId } from "../utils";
 
 export type ParticipantsPanelGetRooms = (
   roomId: string,
@@ -57,7 +57,9 @@ function ParticipantsPanel({
   socket: Socket | null;
   isAdmin?: boolean | null;
 }) {
-  const participantsList = Array.from(participants.values());
+  const participantsList = Array.from(participants.values()).filter(
+    (participant) => !isSystemUserId(participant.userId)
+  );
   const hasLocalEntry = participants.has(currentUserId);
   const localParticipant: Participant | null =
     !hasLocalEntry && localState

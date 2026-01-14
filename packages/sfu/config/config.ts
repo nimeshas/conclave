@@ -131,6 +131,11 @@ export const config = {
     maxIncomingBitrate: 1500000,
     initialAvailableOutgoingBitrate: 1000000,
   },
+  plainTransport: {
+    listenIp: process.env.PLAIN_TRANSPORT_LISTEN_IP || "0.0.0.0",
+    announcedIp:
+      process.env.PLAIN_TRANSPORT_ANNOUNCED_IP || process.env.ANNOUNCED_IP,
+  },
 };
 
 export default config;

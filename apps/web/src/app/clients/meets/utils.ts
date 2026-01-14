@@ -211,6 +211,12 @@ export function normalizeBrowserUrl(
   return { url: parsed.toString() };
 }
 
+const SYSTEM_USER_PREFIX = "shared-browser:";
+
+export function isSystemUserId(userId: string): boolean {
+  return userId.startsWith(SYSTEM_USER_PREFIX);
+}
+
 export function resolveNoVncUrl(noVncUrl: string): string {
   if (!noVncUrl) return noVncUrl;
   if (typeof window === "undefined") return noVncUrl;

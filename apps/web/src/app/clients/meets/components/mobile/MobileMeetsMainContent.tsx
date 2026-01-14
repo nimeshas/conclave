@@ -1,7 +1,7 @@
 "use client";
 
 import { Ghost, RefreshCw, UserX } from "lucide-react";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { Socket } from "socket.io-client";
 import type { RoomInfo } from "@/lib/sfu-types";
@@ -12,14 +12,18 @@ import type {
   ReactionEvent,
   ReactionOption,
 } from "../../types";
+import type { BrowserState } from "../../hooks/useSharedBrowser";
 import ChatOverlay from "../ChatOverlay";
 import ReactionOverlay from "../ReactionOverlay";
 import MobileChatPanel from "./MobileChatPanel";
 import MobileControlsBar from "./MobileControlsBar";
+import MobileBrowserLayout from "./MobileBrowserLayout";
 import MobileGridLayout from "./MobileGridLayout";
 import MobileJoinScreen from "./MobileJoinScreen";
 import MobileParticipantsPanel from "./MobileParticipantsPanel";
 import MobilePresentationLayout from "./MobilePresentationLayout";
+import SystemAudioPlayers from "../SystemAudioPlayers";
+import { isSystemUserId } from "../../utils";
 
 interface MobileMeetsMainContentProps {
   isJoined: boolean;
@@ -84,6 +88,13 @@ interface MobileMeetsMainContentProps {
   onIsAdminChange: (isAdmin: boolean) => void;
   isRoomLocked: boolean;
   onToggleLock: () => void;
+  browserState?: BrowserState;
+  isBrowserLaunching?: boolean;
+  browserLaunchError?: string | null;
+  onLaunchBrowser?: (url: string) => Promise<boolean>;
+  onNavigateBrowser?: (url: string) => Promise<boolean>;
+  onCloseBrowser?: () => Promise<boolean>;
+  onClearBrowserError?: () => void;
 }
 
 function MobileMeetsMainContent({
@@ -145,6 +156,13 @@ function MobileMeetsMainContent({
   onIsAdminChange,
   isRoomLocked,
   onToggleLock,
+  browserState,
+  isBrowserLaunching,
+  browserLaunchError,
+  onLaunchBrowser,
+  onNavigateBrowser,
+  onCloseBrowser,
+  onClearBrowserError,
 }: MobileMeetsMainContentProps) {
   const handleToggleParticipants = useCallback(
     () => setIsParticipantsOpen((prev) => !prev),
@@ -154,6 +172,13 @@ function MobileMeetsMainContent({
   const handleCloseParticipants = useCallback(
     () => setIsParticipantsOpen(false),
     [setIsParticipantsOpen]
+  );
+  const visibleParticipantCount = useMemo(
+    () =>
+      Array.from(participants.values()).filter(
+        (participant) => !isSystemUserId(participant.userId)
+      ).length,
+    [participants]
   );
 
   if (!isJoined) {
@@ -184,6 +209,10 @@ function MobileMeetsMainContent({
 
   return (
     <div className="flex-1 flex flex-col bg-[#0d0e0d] overflow-hidden relative h-full">
+      <SystemAudioPlayers
+        participants={participants}
+        audioOutputDeviceId={audioOutputDeviceId}
+      />
       {/* Status bar area */}
       <div className="safe-area-pt bg-[#0d0e0d]" />
 
@@ -197,7 +226,7 @@ function MobileMeetsMainContent({
             {roomId.toUpperCase()}
           </span>
           <span className="text-[10px] text-[#FEFCD9]/40 uppercase tracking-wide">
-            • {participants.size + 1} in call
+            • {visibleParticipantCount + 1} in call
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -227,7 +256,27 @@ function MobileMeetsMainContent({
 
       {/* Main content area - with padding for controls */}
       <div className="flex-1 min-h-0 pb-20">
-        {presentationStream ? (
+        {browserState?.active && browserState.noVncUrl ? (
+          <MobileBrowserLayout
+            browserUrl={browserState.url || ""}
+            noVncUrl={browserState.noVncUrl}
+            controllerName={resolveDisplayName(browserState.controllerUserId || "")}
+            localStream={localStream}
+            isCameraOff={isCameraOff}
+            isMuted={isMuted}
+            isGhost={ghostEnabled}
+            participants={participants}
+            userEmail={userEmail}
+            isMirrorCamera={isMirrorCamera}
+            activeSpeakerId={activeSpeakerId}
+            currentUserId={currentUserId}
+            audioOutputDeviceId={audioOutputDeviceId}
+            getDisplayName={resolveDisplayName}
+            isAdmin={isAdmin}
+            isBrowserLaunching={isBrowserLaunching}
+            onNavigateBrowser={onNavigateBrowser}
+          />
+        ) : presentationStream ? (
           <MobilePresentationLayout
             presentationStream={presentationStream}
             presenterName={presenterName}
@@ -273,6 +322,26 @@ function MobileMeetsMainContent({
         </div>
       )}
 
+      {isJoined && browserLaunchError && (
+        <div className="absolute top-16 left-4 right-4 z-40 rounded-xl border border-[#F95F4A]/30 bg-[#0d0e0d]/95 px-3 py-2 text-xs text-[#FEFCD9]/90 shadow-2xl">
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-[#F95F4A]">Browser error</span>
+            {onClearBrowserError && (
+              <button
+                onClick={onClearBrowserError}
+                className="ml-auto text-[#FEFCD9]/50 hover:text-[#FEFCD9]"
+                aria-label="Dismiss browser error"
+              >
+                X
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-[11px] text-[#FEFCD9]/70">
+            {browserLaunchError}
+          </p>
+        </div>
+      )}
+
       {/* Controls bar */}
       <MobileControlsBar
         isMuted={isMuted}
@@ -297,6 +366,11 @@ function MobileMeetsMainContent({
         isAdmin={isAdmin}
         isRoomLocked={isRoomLocked}
         onToggleLock={onToggleLock}
+        isBrowserActive={browserState?.active ?? false}
+        isBrowserLaunching={isBrowserLaunching}
+        onLaunchBrowser={onLaunchBrowser}
+        onNavigateBrowser={onNavigateBrowser}
+        onCloseBrowser={onCloseBrowser}
       />
 
       {/* Full-screen chat panel */}

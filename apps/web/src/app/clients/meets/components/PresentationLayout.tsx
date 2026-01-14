@@ -3,7 +3,7 @@
 import { Ghost, Hand } from "lucide-react";
 import { memo, useEffect, useRef } from "react";
 import type { Participant } from "../types";
-import { getSpeakerHighlightClasses } from "../utils";
+import { getSpeakerHighlightClasses, isSystemUserId } from "../utils";
 import ParticipantVideo from "./ParticipantVideo";
 
 interface PresentationLayoutProps {
@@ -132,7 +132,9 @@ function PresentationLayout({
           </div>
         </div>
 
-        {Array.from(participants.values()).map((participant) => (
+        {Array.from(participants.values())
+          .filter((participant) => !isSystemUserId(participant.userId))
+          .map((participant) => (
           <ParticipantVideo
             key={participant.userId}
             participant={participant}

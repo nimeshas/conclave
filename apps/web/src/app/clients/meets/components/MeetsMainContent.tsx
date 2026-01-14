@@ -15,6 +15,7 @@ import ParticipantsPanel from "./ParticipantsPanel";
 import PresentationLayout from "./PresentationLayout";
 import ReactionOverlay from "./ReactionOverlay";
 import BrowserLayout from "./BrowserLayout";
+import SystemAudioPlayers from "./SystemAudioPlayers";
 import type { BrowserState } from "../hooks/useSharedBrowser";
 import type { ParticipantsPanelGetRooms } from "./ParticipantsPanel";
 import type {
@@ -197,6 +198,10 @@ export default function MeetsMainContent({
   );
   return (
     <div className="flex-1 flex flex-col p-4 overflow-hidden relative">
+      <SystemAudioPlayers
+        participants={participants}
+        audioOutputDeviceId={audioOutputDeviceId}
+      />
       {isJoined && reactions.length > 0 && (
         <ReactionOverlay
           reactions={reactions}

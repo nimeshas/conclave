@@ -28,14 +28,19 @@ app.get("/sessions/:roomId", (req, res) => {
 });
 
 app.post("/launch", async (req, res) => {
-    const { roomId, url, controllerUserId } = req.body;
+    const { roomId, url, controllerUserId, audioTarget } = req.body;
 
     if (!roomId || !url) {
         res.status(400).json({ error: "roomId and url are required" });
         return;
     }
 
-    const result = await containerManager.launchBrowser({ roomId, url, controllerUserId });
+    const result = await containerManager.launchBrowser({
+        roomId,
+        url,
+        controllerUserId,
+        audioTarget,
+    });
 
     if (result.success) {
         res.json(result);
@@ -45,14 +50,14 @@ app.post("/launch", async (req, res) => {
 });
 
 app.post("/navigate", async (req, res) => {
-    const { roomId, url } = req.body;
+    const { roomId, url, audioTarget } = req.body;
 
     if (!roomId || !url) {
         res.status(400).json({ error: "roomId and url are required" });
         return;
     }
 
-    const result = await containerManager.navigateTo({ roomId, url });
+    const result = await containerManager.navigateTo({ roomId, url, audioTarget });
 
     if (result.success) {
         res.json(result);

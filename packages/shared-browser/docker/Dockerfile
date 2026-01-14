@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y \
     libnss3 \
     libxss1 \
     libasound2 \
+    pulseaudio \
+    pulseaudio-utils \
+    ffmpeg \
     supervisor \
     procps \
     && rm -rf /var/lib/apt/lists/*
@@ -28,6 +31,9 @@ RUN mkdir -p /opt/scripts
 
 COPY run_chromium.sh /opt/scripts/run_chromium.sh
 RUN chmod +x /opt/scripts/run_chromium.sh
+
+COPY start-audio.sh /opt/scripts/start-audio.sh
+RUN chmod +x /opt/scripts/start-audio.sh
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

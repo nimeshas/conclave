@@ -3,6 +3,7 @@
 import { Ghost, Hand, MicOff } from "lucide-react";
 import { memo, useEffect, useRef } from "react";
 import type { Participant } from "../../types";
+import { isSystemUserId } from "../../utils";
 
 interface MobileGridLayoutProps {
   localStream: MediaStream | null;
@@ -47,7 +48,9 @@ function MobileGridLayout({
     }
   }, [localStream]);
 
-  const participantArray = Array.from(participants.values());
+  const participantArray = Array.from(participants.values()).filter(
+    (participant) => !isSystemUserId(participant.userId)
+  );
   const totalCount = participantArray.length + 1;
 
   // Determine grid layout based on participant count

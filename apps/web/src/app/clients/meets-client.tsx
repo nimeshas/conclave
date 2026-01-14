@@ -496,6 +496,13 @@ export default function MeetsClient({
           onIsAdminChange={setCurrentIsAdmin}
           isRoomLocked={isRoomLocked}
           onToggleLock={() => socket.toggleRoomLock(!isRoomLocked)}
+          browserState={browserState}
+          isBrowserLaunching={isBrowserLaunching}
+          browserLaunchError={browserLaunchError}
+          onLaunchBrowser={launchBrowser}
+          onNavigateBrowser={navigateBrowser}
+          onCloseBrowser={closeBrowser}
+          onClearBrowserError={clearBrowserError}
         />
       </div>
     );

@@ -5,6 +5,7 @@ import { memo, useEffect, useRef, useState, type FormEvent } from "react";
 import type { Participant } from "../types";
 import {
     getSpeakerHighlightClasses,
+    isSystemUserId,
     normalizeBrowserUrl,
     resolveNoVncUrl,
 } from "../utils";
@@ -231,7 +232,9 @@ function BrowserLayout({
                     </div>
                 </div>
 
-                {Array.from(participants.values()).map((participant) => (
+                {Array.from(participants.values())
+                    .filter((participant) => !isSystemUserId(participant.userId))
+                    .map((participant) => (
                     <ParticipantVideo
                         key={participant.userId}
                         participant={participant}

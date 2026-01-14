@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Socket } from "socket.io-client";
-import { formatDisplayName, normalizeDisplayName } from "../utils";
+import { formatDisplayName, isSystemUserId, normalizeDisplayName } from "../utils";
 
 interface UseMeetDisplayNameOptions {
   user?: {
@@ -39,6 +39,9 @@ export function useMeetDisplayName({
 
   const resolveDisplayName = useCallback(
     (targetUserId: string) => {
+      if (isSystemUserId(targetUserId)) {
+        return "Shared Browser";
+      }
       const storedName = displayNames.get(targetUserId);
       if (storedName && storedName.trim()) {
         return storedName.trim();

@@ -5,12 +5,21 @@ export interface BrowserSession {
     currentUrl: string;
     createdAt: Date;
     controllerUserId?: string;
+    audioTarget?: AudioTarget;
+}
+
+export interface AudioTarget {
+    ip: string;
+    port: number;
+    payloadType: number;
+    ssrc: number;
 }
 
 export interface LaunchBrowserOptions {
     roomId: string;
     url: string;
     controllerUserId?: string;
+    audioTarget?: AudioTarget | null;
 }
 
 export interface LaunchBrowserResult {
@@ -22,6 +31,7 @@ export interface LaunchBrowserResult {
 export interface NavigateOptions {
     roomId: string;
     url: string;
+    audioTarget?: AudioTarget | null;
 }
 
 export interface BrowserServiceConfig {

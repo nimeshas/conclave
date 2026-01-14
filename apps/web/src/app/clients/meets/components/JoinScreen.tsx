@@ -293,7 +293,7 @@ function JoinScreen({
       {!isSessionLoading && (
         <div className="flex-1 flex items-center justify-center p-6 relative z-10">
           {phase === "welcome" && (
-            <div className="flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center justify-center animate-fade-in">
               <div className="text-center mb-8">
                 <div
                   className="hidden md:block text-2xl text-[#FEFCD9]/40 mb-2 tracking-wide"
@@ -351,7 +351,7 @@ function JoinScreen({
           )}
 
           {phase === "auth" && (
-            <div className="w-full max-w-sm">
+            <div className="w-full max-w-sm animate-slide-up">
               <div className="text-center mb-8">
                 <h2
                   className="text-2xl text-[#FEFCD9] mb-2"
@@ -428,7 +428,7 @@ function JoinScreen({
           )}
 
           {phase === "join" && (
-            <div className="w-full max-w-4xl flex flex-col lg:flex-row gap-6 lg:gap-8">
+            <div className="w-full max-w-4xl flex flex-col lg:flex-row gap-6 lg:gap-8 animate-fade-in">
 
               <div className="flex-1 flex flex-col">
                 <div className="relative aspect-video lg:aspect-[4/3] bg-[#0d0e0d] rounded-xl overflow-hidden border border-[#FEFCD9]/10 shadow-2xl">
@@ -459,12 +459,7 @@ function JoinScreen({
                   </div>
                 </div>
 
-                {showPermissionHint && (
-                  <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F95F4A]/10 border border-[#F95F4A]/20 text-xs text-[#FEFCD9]/70">
-                    <AlertCircle className="w-3.5 h-3.5 text-[#F95F4A]" />
-                    Allow camera/mic access
-                  </div>
-                )}
+
               </div>
 
               <div className="w-full lg:w-80 flex flex-col">
@@ -583,13 +578,20 @@ function JoinScreen({
                     </button>
                   </div>
                 )}
+
+                {showPermissionHint && (
+                  <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F95F4A]/10 border border-[#F95F4A]/20 text-xs text-[#FEFCD9]/70 animate-slide-up">
+                    <AlertCircle className="w-3.5 h-3.5 text-[#F95F4A]" />
+                    <span>Please allow camera and microphone access to join</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {!isSessionLoading && phase === "join" && isAdmin && rooms.length > 0 && (
+      {/* {!isSessionLoading && phase === "join" && isAdmin && rooms.length > 0 && (
         <div className="border-t border-[#FEFCD9]/5 bg-[#0d0e0d]/50 px-6 py-4 relative z-10">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-3">
@@ -600,7 +602,7 @@ function JoinScreen({
                 <RefreshCw className={`w-3.5 h-3.5 ${roomsStatus === "loading" ? "animate-spin" : ""}`} />
               </button>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex gap-2 overflow-x-auto pb-1 animate-slide-up animate-delay-200">
               {rooms.map((room) => (
                 <button
                   key={room.id}
@@ -620,7 +622,7 @@ function JoinScreen({
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {isLoading && (
         <div className="absolute inset-0 bg-[#0d0e0d]/80 flex items-center justify-center z-50">
