@@ -14,6 +14,8 @@ import JoinScreen from "./JoinScreen";
 import ParticipantsPanel from "./ParticipantsPanel";
 import PresentationLayout from "./PresentationLayout";
 import ReactionOverlay from "./ReactionOverlay";
+import BrowserLayout from "./BrowserLayout";
+import type { BrowserState } from "../hooks/useSharedBrowser";
 import type { ParticipantsPanelGetRooms } from "./ParticipantsPanel";
 import type {
   ChatMessage,
@@ -91,6 +93,13 @@ interface MeetsMainContentProps {
   onPendingUserStale?: (userId: string) => void;
   isRoomLocked: boolean;
   onToggleLock: () => void;
+  browserState?: BrowserState;
+  isBrowserLaunching?: boolean;
+  browserLaunchError?: string | null;
+  onLaunchBrowser?: (url: string) => Promise<boolean>;
+  onNavigateBrowser?: (url: string) => Promise<boolean>;
+  onCloseBrowser?: () => Promise<boolean>;
+  onClearBrowserError?: () => void;
 }
 
 export default function MeetsMainContent({
@@ -157,6 +166,13 @@ export default function MeetsMainContent({
   onPendingUserStale,
   isRoomLocked,
   onToggleLock,
+  browserState,
+  isBrowserLaunching,
+  browserLaunchError,
+  onLaunchBrowser,
+  onNavigateBrowser,
+  onCloseBrowser,
+  onClearBrowserError,
 }: MeetsMainContentProps) {
   const handleToggleParticipants = useCallback(
     () => setIsParticipantsOpen((prev) => !prev),
@@ -212,6 +228,26 @@ export default function MeetsMainContent({
           onUserChange={onUserChange}
           onIsAdminChange={onIsAdminChange}
         />
+      ) : browserState?.active && browserState.noVncUrl ? (
+        <BrowserLayout
+          browserUrl={browserState.url || ""}
+          noVncUrl={browserState.noVncUrl}
+          controllerName={resolveDisplayName(browserState.controllerUserId || "")}
+          localStream={localStream}
+          isCameraOff={isCameraOff}
+          isHandRaised={isHandRaised}
+          isGhost={ghostEnabled}
+          participants={participants}
+          userEmail={userEmail}
+          isMirrorCamera={isMirrorCamera}
+          activeSpeakerId={activeSpeakerId}
+          currentUserId={currentUserId}
+          audioOutputDeviceId={audioOutputDeviceId}
+          getDisplayName={resolveDisplayName}
+          isAdmin={isAdmin}
+          isBrowserLaunching={isBrowserLaunching}
+          onNavigateBrowser={onNavigateBrowser}
+        />
       ) : presentationStream ? (
         <PresentationLayout
           presentationStream={presentationStream}
@@ -243,6 +279,26 @@ export default function MeetsMainContent({
           audioOutputDeviceId={audioOutputDeviceId}
           getDisplayName={resolveDisplayName}
         />
+      )}
+
+      {isJoined && browserLaunchError && (
+        <div className="absolute top-4 right-4 max-w-[320px] rounded-lg border border-[#F95F4A]/30 bg-[#0d0e0d]/95 px-4 py-3 text-xs text-[#FEFCD9]/90 shadow-2xl">
+          <div className="flex items-start gap-3">
+            <span className="font-medium text-[#F95F4A]">Browser error</span>
+            {onClearBrowserError && (
+              <button
+                onClick={onClearBrowserError}
+                className="ml-auto text-[#FEFCD9]/50 hover:text-[#FEFCD9]"
+                aria-label="Dismiss browser error"
+              >
+                X
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-[11px] text-[#FEFCD9]/70">
+            {browserLaunchError}
+          </p>
+        </div>
       )}
 
       {isJoined && (
@@ -279,6 +335,10 @@ export default function MeetsMainContent({
               pendingUsersCount={isAdmin ? pendingUsers.size : 0}
               isRoomLocked={isRoomLocked}
               onToggleLock={onToggleLock}
+              isBrowserActive={browserState?.active ?? false}
+              isBrowserLaunching={isBrowserLaunching}
+              onLaunchBrowser={onLaunchBrowser}
+              onCloseBrowser={onCloseBrowser}
             />
           </div>
           <div className="flex items-center gap-4">
@@ -287,7 +347,7 @@ export default function MeetsMainContent({
                 className="flex items-center gap-1.5 text-[#F95F4A] text-[10px] uppercase tracking-wider"
                 style={{ fontFamily: "'PolySans Mono', monospace" }}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#F95F4A] animate-pulse"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F95F4A]"></span>
                 Sharing
               </div>
             )}
@@ -359,6 +419,7 @@ export default function MeetsMainContent({
           onPendingUserStale={handlePendingUserStale}
         />
       )}
+
 
       {isJoined && chatOverlayMessages.length > 0 && (
         <ChatOverlay

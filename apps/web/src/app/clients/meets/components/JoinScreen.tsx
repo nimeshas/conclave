@@ -99,7 +99,7 @@ function JoinScreen({
 
   const { data: session, isPending: isSessionLoading } = useSession();
   const lastAppliedSessionUserIdRef = useRef<string | null>(null);
-  
+
   useEffect(() => {
     if (!session?.user) {
       lastAppliedSessionUserIdRef.current = null;
@@ -127,7 +127,7 @@ function JoinScreen({
   useEffect(() => {
     const prevUser = prevUserRef.current;
     prevUserRef.current = user;
-    
+
     if (!prevUser && user && user.id && !user.id.startsWith("guest-")) {
       setPhase("join");
     }
@@ -146,7 +146,7 @@ function JoinScreen({
       }
       return;
     }
-    
+
     // Don't auto-capture - let user explicitly turn on camera/mic
     return () => {
       if (localStream) {
@@ -274,13 +274,13 @@ function JoinScreen({
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden">
-      <div className="absolute inset-0 acm-bg-pattern opacity-20 pointer-events-none" />
-      
+      <div className="absolute inset-0 acm-bg-dot-grid pointer-events-none" />
+
       {isSessionLoading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-6 h-6 text-[#F95F4A] animate-spin" />
-            <span 
+            <span
               className="text-xs text-[#FEFCD9]/40 uppercase tracking-widest"
               style={{ fontFamily: "'PolySans Mono', monospace" }}
             >
@@ -289,229 +289,229 @@ function JoinScreen({
           </div>
         </div>
       )}
-      
+
       {!isSessionLoading && (
-      <div className="flex-1 flex items-center justify-center p-6 relative z-10">
-        {phase === "welcome" && (
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-center mb-8">
-              <div 
-                className="hidden md:block text-2xl text-[#FEFCD9]/40 mb-2 tracking-wide"
-                style={{ fontFamily: "'PolySans Bulky Wide', sans-serif" }}
-              >
-                welcome to
-              </div>
-              
-              <div className="relative inline-block">
-                <span 
-                  className="absolute -left-8 top-1/2 -translate-y-1/2 text-[#F95F4A]/40 text-4xl"
-                  style={{ fontFamily: "'PolySans Mono', monospace" }}
-                >
-                  [
-                </span>
-                <h1 
-                  className="text-5xl md:text-6xl text-[#FEFCD9] tracking-tight"
+        <div className="flex-1 flex items-center justify-center p-6 relative z-10">
+          {phase === "welcome" && (
+            <div className="flex flex-col items-center justify-center">
+              <div className="text-center mb-8">
+                <div
+                  className="hidden md:block text-2xl text-[#FEFCD9]/40 mb-2 tracking-wide"
                   style={{ fontFamily: "'PolySans Bulky Wide', sans-serif" }}
                 >
-                  c0nclav3
-                </h1>
-                <span 
-                  className="absolute -right-8 top-1/2 -translate-y-1/2 text-[#F95F4A]/40 text-4xl"
-                  style={{ fontFamily: "'PolySans Mono', monospace" }}
-                >
-                  ]
-                </span>
-              </div>
-            </div>
-            
-            <p 
-              className="text-[#FEFCD9]/30 text-sm mb-12 max-w-xs text-center"
-              style={{ fontFamily: "'PolySans Trial', sans-serif" }}
-            >
-              Our in-house video conferencing platform
-            </p>
-            
-            <button
-              onClick={() => setPhase("auth")}
-              className="group flex items-center gap-3 px-8 py-3 bg-[#F95F4A] text-white text-xs uppercase tracking-widest rounded-lg hover:bg-[#e8553f] transition-all hover:gap-4"
-              style={{ fontFamily: "'PolySans Mono', monospace" }}
-            >
-              <span>LET'S GO</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-            
-            <div 
-              className="mt-16 flex items-center gap-2"
-              style={{ fontFamily: "'PolySans Mono', monospace" }}
-            >
-              {/* <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              <span className="text-[10px] text-[#FEFCD9]/30 uppercase tracking-wider">System online</span> */}
-            </div>
-          </div>
-        )}
-
-        {phase === "auth" && (
-          <div className="w-full max-w-sm">
-            <div className="text-center mb-8">
-              <h2 
-                className="text-2xl text-[#FEFCD9] mb-2"
-                style={{ fontFamily: "'PolySans Bulky Wide', sans-serif" }}
-              >
-                Join
-              </h2>
-              <p 
-                className="text-xs text-[#FEFCD9]/40 uppercase tracking-widest"
-                style={{ fontFamily: "'PolySans Mono', monospace" }}
-              >
-                choose how to continue
-              </p>
-            </div>
-            
-            <button
-              onClick={handleGoogleSignIn}
-              disabled={isSigningIn}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#1a1a1a] border border-[#FEFCD9]/10 text-[#FEFCD9] rounded-lg hover:border-[#FEFCD9]/25 hover:bg-[#1a1a1a]/80 transition-all disabled:opacity-50 mb-3"
-            >
-              {isSigningIn ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-              )}
-              <span className="text-sm" style={{ fontFamily: "'PolySans Trial', sans-serif" }}>Continue with Google</span>
-            </button>
-            
-            <div className="flex items-center gap-4 my-6">
-              <div className="flex-1 h-px bg-[#FEFCD9]/10" />
-              <span className="text-[10px] text-[#FEFCD9]/30 uppercase tracking-widest" style={{ fontFamily: "'PolySans Mono', monospace" }}>or</span>
-              <div className="flex-1 h-px bg-[#FEFCD9]/10" />
-            </div>
-            
-            <div>
-              <label 
-                className="text-[10px] text-[#FEFCD9]/40 uppercase tracking-widest mb-2 block"
-                style={{ fontFamily: "'PolySans Mono', monospace" }}
-              >
-                Guest name
-              </label>
-              <input
-                type="text"
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                placeholder="Enter your name"
-                className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/25 focus:border-[#F95F4A]/50 focus:outline-none mb-3"
-                style={{ fontFamily: "'PolySans Trial', sans-serif" }}
-                onKeyDown={(e) => { if (e.key === "Enter" && guestName.trim()) handleGuest(); }}
-              />
-              <button
-                onClick={handleGuest}
-                disabled={!guestName.trim()}
-                className="w-full px-4 py-2.5 bg-[#F95F4A] text-white text-sm rounded-lg hover:bg-[#e8553f] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ fontFamily: "'PolySans Trial', sans-serif" }}
-              >
-                Continue as Guest
-              </button>
-            </div>
-            
-            <button
-              onClick={() => setPhase("welcome")}
-              className="w-full mt-6 text-[11px] text-[#FEFCD9]/30 hover:text-[#FEFCD9]/50 transition-colors uppercase tracking-widest"
-              style={{ fontFamily: "'PolySans Mono', monospace" }}
-            >
-              ← back
-            </button>
-          </div>
-        )}
-
-        {phase === "join" && (
-          <div className="w-full max-w-4xl flex flex-col lg:flex-row gap-6 lg:gap-8">
-          
-          <div className="flex-1 flex flex-col">
-            <div className="relative aspect-video lg:aspect-[4/3] bg-[#0d0e0d] rounded-xl overflow-hidden border border-[#FEFCD9]/10 shadow-2xl">
-              {isCameraOn && localStream ? (
-                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#0d0e0d]">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#F95F4A]/20 to-[#FF007A]/20 border border-[#FEFCD9]/20 flex items-center justify-center">
-                    <span className="text-3xl text-[#FEFCD9] font-bold">{userEmail[0]?.toUpperCase() || "?"}</span>
-                  </div>
+                  welcome to
                 </div>
-              )}
-              
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-2 py-1.5">
-                <button onClick={toggleMic} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${isMicOn ? "text-[#FEFCD9] hover:bg-white/10" : "bg-red-500 text-white"}`}>
-                  {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-                </button>
-                <button onClick={toggleCamera} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${isCameraOn ? "text-[#FEFCD9] hover:bg-white/10" : "bg-red-500 text-white"}`}>
-                  {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-                </button>
+
+                <div className="relative inline-block">
+                  <span
+                    className="absolute -left-8 top-1/2 -translate-y-1/2 text-[#F95F4A]/40 text-4xl"
+                    style={{ fontFamily: "'PolySans Mono', monospace" }}
+                  >
+                    [
+                  </span>
+                  <h1
+                    className="text-5xl md:text-6xl text-[#FEFCD9] tracking-tight"
+                    style={{ fontFamily: "'PolySans Bulky Wide', sans-serif" }}
+                  >
+                    c0nclav3
+                  </h1>
+                  <span
+                    className="absolute -right-8 top-1/2 -translate-y-1/2 text-[#F95F4A]/40 text-4xl"
+                    style={{ fontFamily: "'PolySans Mono', monospace" }}
+                  >
+                    ]
+                  </span>
+                </div>
               </div>
+
+              <p
+                className="text-[#FEFCD9]/30 text-sm mb-12 max-w-xs text-center"
+                style={{ fontFamily: "'PolySans Trial', sans-serif" }}
+              >
+                ACM-VIT's in-house video conferencing platform
+              </p>
+
+              <button
+                onClick={() => setPhase("auth")}
+                className="group flex items-center gap-3 px-8 py-3 bg-[#F95F4A] text-white text-xs uppercase tracking-widest rounded-lg hover:bg-[#e8553f] transition-all hover:gap-4"
+                style={{ fontFamily: "'PolySans Mono', monospace" }}
+              >
+                <span>LET'S GO</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
 
               <div
-                className="absolute top-3 left-3 px-2.5 py-1 bg-black/50 backdrop-blur-sm rounded-full text-[11px] text-[#FEFCD9]/70"
+                className="mt-16 flex items-center gap-2"
                 style={{ fontFamily: "'PolySans Mono', monospace" }}
               >
-                {userEmail}
+                {/* <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              <span className="text-[10px] text-[#FEFCD9]/30 uppercase tracking-wider">System online</span> */}
               </div>
             </div>
-            
-            {showPermissionHint && (
-              <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F95F4A]/10 border border-[#F95F4A]/20 text-xs text-[#FEFCD9]/70">
-                <AlertCircle className="w-3.5 h-3.5 text-[#F95F4A]" />
-                Allow camera/mic access
-              </div>
-            )}
-          </div>
+          )}
 
-          <div className="w-full lg:w-80 flex flex-col">
-            {!isRoutedRoom && (
-              <div className="flex mb-6 bg-[#1a1a1a] rounded-lg p-1">
-                <button
-                  onClick={() => {
-                    setActiveTab("new");
-                    onIsAdminChange(true);
-                  }}
-                  className={`flex-1 py-2.5 text-xs uppercase tracking-wider rounded-md transition-all ${activeTab === "new" ? "bg-[#F95F4A] text-white" : "text-[#FEFCD9]/50 hover:text-[#FEFCD9]"}`}
-                  style={{ fontFamily: "'PolySans Mono', monospace" }}
-                >
-                  New Meeting
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab("join");
-                    onIsAdminChange(false);
-                  }}
-                  className={`flex-1 py-2.5 text-xs uppercase tracking-wider rounded-md transition-all ${activeTab === "join" ? "bg-[#F95F4A] text-white" : "text-[#FEFCD9]/50 hover:text-[#FEFCD9]"}`}
-                  style={{ fontFamily: "'PolySans Mono', monospace" }}
+          {phase === "auth" && (
+            <div className="w-full max-w-sm">
+              <div className="text-center mb-8">
+                <h2
+                  className="text-2xl text-[#FEFCD9] mb-2"
+                  style={{ fontFamily: "'PolySans Bulky Wide', sans-serif" }}
                 >
                   Join
+                </h2>
+                <p
+                  className="text-xs text-[#FEFCD9]/40 uppercase tracking-widest"
+                  style={{ fontFamily: "'PolySans Mono', monospace" }}
+                >
+                  choose how to continue
+                </p>
+              </div>
+
+              <button
+                onClick={handleGoogleSignIn}
+                disabled={isSigningIn}
+                className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#1a1a1a] border border-[#FEFCD9]/10 text-[#FEFCD9] rounded-lg hover:border-[#FEFCD9]/25 hover:bg-[#1a1a1a]/80 transition-all disabled:opacity-50 mb-3"
+              >
+                {isSigningIn ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                  </svg>
+                )}
+                <span className="text-sm" style={{ fontFamily: "'PolySans Trial', sans-serif" }}>Continue with Google</span>
+              </button>
+
+              <div className="flex items-center gap-4 my-6">
+                <div className="flex-1 h-px bg-[#FEFCD9]/10" />
+                <span className="text-[10px] text-[#FEFCD9]/30 uppercase tracking-widest" style={{ fontFamily: "'PolySans Mono', monospace" }}>or</span>
+                <div className="flex-1 h-px bg-[#FEFCD9]/10" />
+              </div>
+
+              <div>
+                <label
+                  className="text-[10px] text-[#FEFCD9]/40 uppercase tracking-widest mb-2 block"
+                  style={{ fontFamily: "'PolySans Mono', monospace" }}
+                >
+                  Guest name
+                </label>
+                <input
+                  type="text"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/25 focus:border-[#F95F4A]/50 focus:outline-none mb-3"
+                  style={{ fontFamily: "'PolySans Trial', sans-serif" }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && guestName.trim()) handleGuest(); }}
+                />
+                <button
+                  onClick={handleGuest}
+                  disabled={!guestName.trim()}
+                  className="w-full px-4 py-2.5 bg-[#F95F4A] text-white text-sm rounded-lg hover:bg-[#e8553f] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{ fontFamily: "'PolySans Trial', sans-serif" }}
+                >
+                  Continue as Guest
                 </button>
               </div>
-            )}
 
-            {activeTab === "new" && !isRoutedRoom ? (
-              <div className="space-y-4">
-                {isAdmin && allowGhostMode && (
-                  <>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider text-[#FEFCD9]/40 mb-1.5 block" style={{ fontFamily: "'PolySans Mono', monospace" }}>
-                        Display Name
-                      </label>
-                      <input
-                        type="text"
-                        value={displayNameInput}
-                        onChange={(e) => onDisplayNameInputChange(e.target.value)}
-                        placeholder="Your name"
-                        maxLength={40}
-                        disabled={isLoading}
-                        className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:border-[#F95F4A]/50 focus:outline-none"
-                      />
+              <button
+                onClick={() => setPhase("welcome")}
+                className="w-full mt-6 text-[11px] text-[#FEFCD9]/30 hover:text-[#FEFCD9]/50 transition-colors uppercase tracking-widest"
+                style={{ fontFamily: "'PolySans Mono', monospace" }}
+              >
+                ← back
+              </button>
+            </div>
+          )}
+
+          {phase === "join" && (
+            <div className="w-full max-w-4xl flex flex-col lg:flex-row gap-6 lg:gap-8">
+
+              <div className="flex-1 flex flex-col">
+                <div className="relative aspect-video lg:aspect-[4/3] bg-[#0d0e0d] rounded-xl overflow-hidden border border-[#FEFCD9]/10 shadow-2xl">
+                  {isCameraOn && localStream ? (
+                    <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#0d0e0d]">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#F95F4A]/20 to-[#FF007A]/20 border border-[#FEFCD9]/20 flex items-center justify-center">
+                        <span className="text-3xl text-[#FEFCD9] font-bold">{userEmail[0]?.toUpperCase() || "?"}</span>
+                      </div>
                     </div>
-                    {/* <button
+                  )}
+
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-2 py-1.5">
+                    <button onClick={toggleMic} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${isMicOn ? "text-[#FEFCD9] hover:bg-white/10" : "bg-red-500 text-white"}`}>
+                      {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                    </button>
+                    <button onClick={toggleCamera} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${isCameraOn ? "text-[#FEFCD9] hover:bg-white/10" : "bg-red-500 text-white"}`}>
+                      {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  <div
+                    className="absolute top-3 left-3 px-2.5 py-1 bg-black/50 backdrop-blur-sm rounded-full text-[11px] text-[#FEFCD9]/70"
+                    style={{ fontFamily: "'PolySans Mono', monospace" }}
+                  >
+                    {userEmail}
+                  </div>
+                </div>
+
+                {showPermissionHint && (
+                  <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F95F4A]/10 border border-[#F95F4A]/20 text-xs text-[#FEFCD9]/70">
+                    <AlertCircle className="w-3.5 h-3.5 text-[#F95F4A]" />
+                    Allow camera/mic access
+                  </div>
+                )}
+              </div>
+
+              <div className="w-full lg:w-80 flex flex-col">
+                {!isRoutedRoom && (
+                  <div className="flex mb-6 bg-[#1a1a1a] rounded-lg p-1">
+                    <button
+                      onClick={() => {
+                        setActiveTab("new");
+                        onIsAdminChange(true);
+                      }}
+                      className={`flex-1 py-2.5 text-xs uppercase tracking-wider rounded-md transition-all ${activeTab === "new" ? "bg-[#F95F4A] text-white" : "text-[#FEFCD9]/50 hover:text-[#FEFCD9]"}`}
+                      style={{ fontFamily: "'PolySans Mono', monospace" }}
+                    >
+                      New Meeting
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveTab("join");
+                        onIsAdminChange(false);
+                      }}
+                      className={`flex-1 py-2.5 text-xs uppercase tracking-wider rounded-md transition-all ${activeTab === "join" ? "bg-[#F95F4A] text-white" : "text-[#FEFCD9]/50 hover:text-[#FEFCD9]"}`}
+                      style={{ fontFamily: "'PolySans Mono', monospace" }}
+                    >
+                      Join
+                    </button>
+                  </div>
+                )}
+
+                {activeTab === "new" && !isRoutedRoom ? (
+                  <div className="space-y-4">
+                    {isAdmin && allowGhostMode && (
+                      <>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-wider text-[#FEFCD9]/40 mb-1.5 block" style={{ fontFamily: "'PolySans Mono', monospace" }}>
+                            Display Name
+                          </label>
+                          <input
+                            type="text"
+                            value={displayNameInput}
+                            onChange={(e) => onDisplayNameInputChange(e.target.value)}
+                            placeholder="Your name"
+                            maxLength={40}
+                            disabled={isLoading}
+                            className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:border-[#F95F4A]/50 focus:outline-none"
+                          />
+                        </div>
+                        {/* <button
                       onClick={() => onGhostModeChange(!isGhostMode)}
                       disabled={isLoading}
                       className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-all text-sm ${isGhostMode ? "bg-[#FF007A]/15 border border-[#FF007A]/30" : "bg-[#1a1a1a] border border-[#FEFCD9]/10"}`}
@@ -522,71 +522,71 @@ function JoinScreen({
                         <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-all ${isGhostMode ? "left-4" : "left-0.5"}`} />
                       </div>
                     </button> */}
-                  </>
-                )}
-                <button
-                  onClick={handleCreateRoom}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#F95F4A] text-white rounded-lg hover:bg-[#e8553f] transition-colors disabled:opacity-50"
-                >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  <span className="text-sm" style={{ fontFamily: "'PolySans Trial', sans-serif" }}>Start Meeting</span>
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-[#FEFCD9]/40 mb-1.5 block" style={{ fontFamily: "'PolySans Mono', monospace" }}>
-                    Room Name
-                  </label>
-                  <input
-                    type="text"
-                    value={normalizedRoomId}
-                    onChange={(e) =>
-                      onRoomIdChange(
-                        enforceShortCode
-                          ? sanitizeRoomCode(e.target.value)
-                          : e.target.value
-                      )
-                    }
-                    placeholder="e.g. aster-lotus-nami"
-                    maxLength={enforceShortCode ? ROOM_CODE_MAX_LENGTH : undefined}
-                    disabled={isLoading}
-                    readOnly={isRoutedRoom}
-                    className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:border-[#F95F4A]/50 focus:outline-none"
-                    onKeyDown={(e) => { if (e.key === "Enter" && canJoin) onJoin(); }}
-                  />
-                </div>
-                {isAdmin && allowGhostMode && (
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider text-[#FEFCD9]/40 mb-1.5 block" style={{ fontFamily: "'PolySans Mono', monospace" }}>
-                      Display Name
-                    </label>
-                    <input
-                      type="text"
-                      value={displayNameInput}
-                      onChange={(e) => onDisplayNameInputChange(e.target.value)}
-                      placeholder="Your name"
-                      maxLength={40}
+                      </>
+                    )}
+                    <button
+                      onClick={handleCreateRoom}
                       disabled={isLoading}
-                      className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:border-[#F95F4A]/50 focus:outline-none"
-                    />
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#F95F4A] text-white rounded-lg hover:bg-[#e8553f] transition-colors disabled:opacity-50"
+                    >
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      <span className="text-sm" style={{ fontFamily: "'PolySans Trial', sans-serif" }}>Start Meeting</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider text-[#FEFCD9]/40 mb-1.5 block" style={{ fontFamily: "'PolySans Mono', monospace" }}>
+                        Room Name
+                      </label>
+                      <input
+                        type="text"
+                        value={normalizedRoomId}
+                        onChange={(e) =>
+                          onRoomIdChange(
+                            enforceShortCode
+                              ? sanitizeRoomCode(e.target.value)
+                              : e.target.value
+                          )
+                        }
+                        placeholder="e.g. aster-lotus-nami"
+                        maxLength={enforceShortCode ? ROOM_CODE_MAX_LENGTH : undefined}
+                        disabled={isLoading}
+                        readOnly={isRoutedRoom}
+                        className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:border-[#F95F4A]/50 focus:outline-none"
+                        onKeyDown={(e) => { if (e.key === "Enter" && canJoin) onJoin(); }}
+                      />
+                    </div>
+                    {isAdmin && allowGhostMode && (
+                      <div>
+                        <label className="text-[10px] uppercase tracking-wider text-[#FEFCD9]/40 mb-1.5 block" style={{ fontFamily: "'PolySans Mono', monospace" }}>
+                          Display Name
+                        </label>
+                        <input
+                          type="text"
+                          value={displayNameInput}
+                          onChange={(e) => onDisplayNameInputChange(e.target.value)}
+                          placeholder="Your name"
+                          maxLength={40}
+                          disabled={isLoading}
+                          className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-lg text-sm text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:border-[#F95F4A]/50 focus:outline-none"
+                        />
+                      </div>
+                    )}
+                    <button
+                      onClick={onJoin}
+                      disabled={!canJoin || isLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#F95F4A] text-white rounded-lg hover:bg-[#e8553f] transition-colors disabled:opacity-30"
+                    >
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                      <span className="text-sm" style={{ fontFamily: "'PolySans Trial', sans-serif" }}>Join Meeting</span>
+                    </button>
                   </div>
                 )}
-                <button
-                  onClick={onJoin}
-                  disabled={!canJoin || isLoading}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#F95F4A] text-white rounded-lg hover:bg-[#e8553f] transition-colors disabled:opacity-30"
-                >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                  <span className="text-sm" style={{ fontFamily: "'PolySans Trial', sans-serif" }}>Join Meeting</span>
-                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-        )}
-      </div>
       )}
 
       {!isSessionLoading && phase === "join" && isAdmin && rooms.length > 0 && (

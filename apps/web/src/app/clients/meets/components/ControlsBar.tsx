@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  Globe,
   Hand,
+  Loader2,
   Lock,
   LockOpen,
   MessageSquare,
@@ -13,9 +15,11 @@ import {
   Users,
   Video,
   VideoOff,
+  X,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { ReactionOption } from "../types";
+import { normalizeBrowserUrl } from "../utils";
 
 interface ControlsBarProps {
   isMuted: boolean;
@@ -40,6 +44,10 @@ interface ControlsBarProps {
   pendingUsersCount?: number;
   isRoomLocked?: boolean;
   onToggleLock?: () => void;
+  isBrowserActive?: boolean;
+  isBrowserLaunching?: boolean;
+  onLaunchBrowser?: (url: string) => Promise<boolean>;
+  onCloseBrowser?: () => Promise<boolean>;
 }
 
 function ControlsBar({
@@ -65,10 +73,18 @@ function ControlsBar({
   pendingUsersCount = 0,
   isRoomLocked = false,
   onToggleLock,
+  isBrowserActive = false,
+  isBrowserLaunching = false,
+  onLaunchBrowser,
+  onCloseBrowser,
 }: ControlsBarProps) {
   const canStartScreenShare = !activeScreenShareId || isScreenSharing;
   const [isReactionMenuOpen, setIsReactionMenuOpen] = useState(false);
+  const [isBrowserMenuOpen, setIsBrowserMenuOpen] = useState(false);
+  const [browserUrlInput, setBrowserUrlInput] = useState("");
+  const [browserUrlError, setBrowserUrlError] = useState<string | null>(null);
   const reactionMenuRef = useRef<HTMLDivElement>(null);
+  const browserMenuRef = useRef<HTMLDivElement>(null);
   const lastReactionTimeRef = useRef<number>(0);
   const REACTION_COOLDOWN_MS = 150;
 
@@ -203,6 +219,92 @@ function ControlsBar({
       >
         <Monitor className="w-4 h-4" />
       </button>
+      {isAdmin && onLaunchBrowser && (
+        <div className="relative" ref={browserMenuRef}>
+          <button
+            onClick={() => {
+              if (isBrowserActive && onCloseBrowser) {
+                onCloseBrowser();
+              } else {
+                setIsBrowserMenuOpen(!isBrowserMenuOpen);
+              }
+            }}
+            disabled={isBrowserLaunching}
+            className={isBrowserActive ? activeButtonClass : isBrowserLaunching ? ghostDisabledClass : defaultButtonClass}
+            title={isBrowserActive ? "Close shared browser" : "Launch shared browser"}
+          >
+            {isBrowserLaunching ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Globe className="w-4 h-4" />
+            )}
+          </button>
+
+          {isBrowserMenuOpen && !isBrowserActive && (
+            <div
+              className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#0d0e0d]/98 backdrop-blur-md border border-[#FEFCD9]/10 rounded-xl p-3 shadow-2xl z-50 min-w-[280px]"
+              style={{ fontFamily: "'PolySans Trial', sans-serif" }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span
+                  className="text-[10px] uppercase tracking-[0.12em] text-[#FEFCD9]/50"
+                  style={{ fontFamily: "'PolySans Mono', monospace" }}
+                >
+                  Launch Browser
+                </span>
+                <button
+                  onClick={() => setIsBrowserMenuOpen(false)}
+                  className="w-5 h-5 rounded flex items-center justify-center text-[#FEFCD9]/40 hover:text-[#FEFCD9] hover:bg-[#FEFCD9]/10"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              <form
+                onSubmit={async (e: FormEvent) => {
+                  e.preventDefault();
+                  if (!browserUrlInput.trim()) return;
+                  const normalized = normalizeBrowserUrl(browserUrlInput);
+                  if (!normalized.url) {
+                    setBrowserUrlError(normalized.error ?? "Enter a valid URL.");
+                    return;
+                  }
+                  setBrowserUrlError(null);
+                  setBrowserUrlInput("");
+                  setIsBrowserMenuOpen(false);
+                  await onLaunchBrowser(normalized.url);
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  value={browserUrlInput}
+                  onChange={(e) => {
+                    setBrowserUrlInput(e.target.value);
+                    if (browserUrlError) {
+                      setBrowserUrlError(null);
+                    }
+                  }}
+                  placeholder="youtube.com"
+                  autoFocus
+                  className="flex-1 px-3 py-1.5 bg-black/40 border border-[#FEFCD9]/10 rounded-lg text-xs text-[#FEFCD9] placeholder:text-[#FEFCD9]/30 focus:outline-none focus:border-[#FEFCD9]/25"
+                />
+                <button
+                  type="submit"
+                  disabled={!browserUrlInput.trim()}
+                  className="px-3 py-1.5 bg-[#F95F4A] text-white rounded-lg text-xs font-medium hover:bg-[#F95F4A]/90 disabled:opacity-40"
+                >
+                  Go
+                </button>
+              </form>
+              {browserUrlError && (
+                <p className="mt-2 text-[11px] text-[#F95F4A]">
+                  {browserUrlError}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <button
         onClick={onToggleHandRaised}

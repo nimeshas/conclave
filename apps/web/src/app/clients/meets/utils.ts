@@ -182,3 +182,50 @@ export function getSpeakerHighlightClasses(isActive: boolean): string {
     ? "border-emerald-300/90 ring-4 ring-emerald-400/45 shadow-[0_0_26px_rgba(16,185,129,0.28)]"
     : "";
 }
+
+export function normalizeBrowserUrl(
+  raw: string
+): { url?: string; error?: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { error: "Enter a URL to continue." };
+  }
+  if (/\s/.test(trimmed)) {
+    return { error: "URLs cannot contain spaces." };
+  }
+
+  const hasScheme = /^[a-zA-Z][a-zA-Z\d+-.]*:/.test(trimmed);
+  const candidate = hasScheme ? trimmed : `https://${trimmed}`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return { error: "Enter a valid URL." };
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { error: "Only http and https URLs are supported." };
+  }
+
+  return { url: parsed.toString() };
+}
+
+export function resolveNoVncUrl(noVncUrl: string): string {
+  if (!noVncUrl) return noVncUrl;
+  if (typeof window === "undefined") return noVncUrl;
+
+  try {
+    const parsed = new URL(noVncUrl);
+    const isLocalHost =
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "0.0.0.0";
+    if (isLocalHost) {
+      parsed.hostname = window.location.hostname;
+    }
+    return parsed.toString();
+  } catch {
+    return noVncUrl;
+  }
+}

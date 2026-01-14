@@ -25,6 +25,7 @@ import { useMeetRooms } from "./meets/hooks/useMeetRooms";
 import { useMeetSocket } from "./meets/hooks/useMeetSocket";
 import { useMeetState } from "./meets/hooks/useMeetState";
 import { useIsMobile } from "./meets/hooks/useIsMobile";
+import { useSharedBrowser } from "./meets/hooks/useSharedBrowser";
 import type { ParticipantsPanelGetRooms } from "./meets/components/ParticipantsPanel";
 import { sanitizeRoomCode } from "./meets/utils";
 
@@ -323,6 +324,19 @@ export default function MeetsClient({
     setIsHandRaised,
   });
 
+  const {
+    browserState,
+    isLaunching: isBrowserLaunching,
+    launchError: browserLaunchError,
+    launchBrowser,
+    navigateTo: navigateBrowser,
+    closeBrowser,
+    clearError: clearBrowserError,
+  } = useSharedBrowser({
+    socketRef: refs.socketRef,
+    isAdmin: isAdminFlag,
+  });
+
   const { mounted } = useMeetLifecycle({
     cleanup: socket.cleanup,
     abortControllerRef: refs.abortControllerRef,
@@ -586,6 +600,13 @@ export default function MeetsClient({
         onIsAdminChange={setCurrentIsAdmin}
         isRoomLocked={isRoomLocked}
         onToggleLock={() => socket.toggleRoomLock(!isRoomLocked)}
+        browserState={browserState}
+        isBrowserLaunching={isBrowserLaunching}
+        browserLaunchError={browserLaunchError}
+        onLaunchBrowser={launchBrowser}
+        onNavigateBrowser={navigateBrowser}
+        onCloseBrowser={closeBrowser}
+        onClearBrowserError={clearBrowserError}
       />
     </div>
   );

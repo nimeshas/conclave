@@ -28,3 +28,17 @@ services:
       ANNOUNCED_IP: ${ANNOUNCED_IP}
       SFU_VERSION: "v2"
     restart: unless-stopped
+
+  browser-service:
+    build:
+      context: ./packages/shared-browser
+    network_mode: "host"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      BROWSER_SERVICE_PORT: "3040"
+      NOVNC_PORT_START: "6080"
+      NOVNC_PORT_END: "6100"
+      BROWSER_HOST_ADDRESS: ${BROWSER_HOST_ADDRESS:-localhost}
+      BROWSER_IMAGE_NAME: "conclave-browser:latest"
+    restart: unless-stopped

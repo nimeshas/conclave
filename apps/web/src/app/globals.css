@@ -132,7 +132,9 @@ body {
 }
 
 /* ACM-VIT Style Input Focus */
-input:focus, textarea:focus, select:focus {
+input:focus,
+textarea:focus,
+select:focus {
   border-color: #F95F4A !important;
   outline: none;
 }
@@ -156,16 +158,26 @@ input:focus, textarea:focus, select:focus {
 
 /* Blinking cursor animation */
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
 }
 
 /* Status indicator pulse */
 @keyframes acm-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.6);
   }
+
   50% {
     opacity: 0.7;
     box-shadow: 0 0 12px 4px rgba(34, 197, 94, 0.4);
@@ -182,6 +194,7 @@ input:focus, textarea:focus, select:focus {
     opacity: 0;
     transform: scale(0.96);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);
@@ -193,6 +206,7 @@ input:focus, textarea:focus, select:focus {
     opacity: 1;
     transform: scale(1);
   }
+
   100% {
     opacity: 0;
     transform: scale(0.96);
@@ -296,9 +310,12 @@ input:focus, textarea:focus, select:focus {
 
 /* Status indicator pulse - orange accent */
 @keyframes acm-pulse-orange {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(249, 95, 74, 0.6);
   }
+
   50% {
     box-shadow: 0 0 0 8px rgba(249, 95, 74, 0);
   }
@@ -318,10 +335,13 @@ input:focus, textarea:focus, select:focus {
 }
 
 @keyframes acm-pulse-live {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.6;
     transform: scale(1.2);
@@ -396,12 +416,10 @@ input:focus, textarea:focus, select:focus {
   inset: 0;
   border-radius: 16px;
   padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgba(254, 252, 217, 0.2) 0%,
-    rgba(249, 95, 74, 0.3) 50%,
-    rgba(255, 0, 122, 0.2) 100%
-  );
+  background: linear-gradient(135deg,
+      rgba(254, 252, 217, 0.2) 0%,
+      rgba(249, 95, 74, 0.3) 50%,
+      rgba(255, 0, 122, 0.2) 100%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -421,13 +439,11 @@ input:focus, textarea:focus, select:focus {
   position: absolute;
   inset: -2px;
   border-radius: 18px;
-  background: conic-gradient(
-    from var(--rotation, 0deg),
-    #F95F4A,
-    #FF007A,
-    #FEFCD9,
-    #F95F4A
-  );
+  background: conic-gradient(from var(--rotation, 0deg),
+      #F95F4A,
+      #FF007A,
+      #FEFCD9,
+      #F95F4A);
   animation: acm-rotate-border 4s linear infinite;
   z-index: -1;
 }
@@ -445,6 +461,7 @@ input:focus, textarea:focus, select:focus {
   from {
     --rotation: 0deg;
   }
+
   to {
     --rotation: 360deg;
   }
@@ -468,10 +485,12 @@ input:focus, textarea:focus, select:focus {
     opacity: 0;
     transform: translate3d(-10px, 20px, 0) scale(0.85);
   }
+
   15% {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
   }
+
   100% {
     opacity: 0;
     transform: translate3d(10px, -180px, 0) scale(1.1);
@@ -543,17 +562,18 @@ input:focus, textarea:focus, select:focus {
   opacity: 0.03;
 }
 
+.acm-bg-dot-grid {
+  background-image: url("/assets/background_pattern.svg");
+  background-repeat: repeat;
+}
+
 .acm-bg-radial {
-  background: radial-gradient(
-    ellipse at 30% 20%,
-    rgba(249, 95, 74, 0.08) 0%,
-    transparent 50%
-  ),
-  radial-gradient(
-    ellipse at 70% 80%,
-    rgba(255, 0, 122, 0.06) 0%,
-    transparent 50%
-  );
+  background: radial-gradient(ellipse at 30% 20%,
+      rgba(249, 95, 74, 0.08) 0%,
+      transparent 50%),
+    radial-gradient(ellipse at 70% 80%,
+      rgba(255, 0, 122, 0.06) 0%,
+      transparent 50%);
 }
 
 /* Glow ball decorations */
@@ -648,4 +668,9 @@ input:focus, textarea:focus, select:focus {
     transform: scale(0.97);
     opacity: 0.8;
   }
+}
+
+
+#noVNC_status_bar {
+  display: none;
 }
