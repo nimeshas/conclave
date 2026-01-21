@@ -1,4 +1,9 @@
-import type { CreateTransportResponse, ConnectTransportData } from "../../../types.js";
+import type {
+  CreateTransportResponse,
+  ConnectTransportData,
+  RestartIceData,
+  RestartIceResponse,
+} from "../../../types.js";
 import { Logger } from "../../../utilities/loggers.js";
 import type { ConnectionContext } from "../context.js";
 import { respond } from "./ack.js";
@@ -103,6 +108,37 @@ export const registerTransportHandlers = (context: ConnectionContext): void => {
         respond(callback, { success: true });
       } catch (error) {
         Logger.error("Error connecting consumer transport:", error);
+        respond(callback, { error: (error as Error).message });
+      }
+    },
+  );
+
+  socket.on(
+    "restartIce",
+    async (
+      data: RestartIceData,
+      callback: (response: RestartIceResponse | { error: string }) => void,
+    ) => {
+      try {
+        if (!context.currentClient) {
+          respond(callback, { error: "Not in a room" });
+          return;
+        }
+
+        const transport =
+          data.transport === "producer"
+            ? context.currentClient.producerTransport
+            : context.currentClient.consumerTransport;
+
+        if (!transport) {
+          respond(callback, { error: "Transport not found" });
+          return;
+        }
+
+        const iceParameters = await transport.restartIce();
+        respond(callback, { iceParameters });
+      } catch (error) {
+        Logger.error("Error restarting ICE:", error);
         respond(callback, { error: (error as Error).message });
       }
     },

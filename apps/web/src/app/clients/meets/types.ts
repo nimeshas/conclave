@@ -117,6 +117,10 @@ export interface TransportResponse {
   dtlsParameters: DtlsParameters;
 }
 
+export interface RestartIceResponse {
+  iceParameters: IceParameters;
+}
+
 export interface ConsumeResponse {
   id: string;
   producerId: string;

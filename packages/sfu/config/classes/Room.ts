@@ -29,6 +29,10 @@ export class Room {
     string,
     { userKey: string; userId: string; socket: any; displayName?: string }
   > = new Map();
+  public pendingDisconnects: Map<
+    string,
+    { timeout: NodeJS.Timeout; socketId: string }
+  > = new Map();
   public allowedUsers: Set<string> = new Set();
   public currentScreenShareProducerId: string | null = null;
   public currentQuality: VideoQuality = "standard";
@@ -102,6 +106,11 @@ export class Room {
 
   removeClient(clientId: string): Client | undefined {
     const client = this.clients.get(clientId);
+    const pending = this.pendingDisconnects.get(clientId);
+    if (pending) {
+      clearTimeout(pending.timeout);
+      this.pendingDisconnects.delete(clientId);
+    }
     if (client) {
       client.close();
       this.clients.delete(clientId);
@@ -320,6 +329,10 @@ export class Room {
 
   close(): void {
     this.stopCleanupTimer();
+    for (const pending of this.pendingDisconnects.values()) {
+      clearTimeout(pending.timeout);
+    }
+    this.pendingDisconnects.clear();
     for (const client of this.clients.values()) {
       client.close();
     }
@@ -327,6 +340,38 @@ export class Room {
     this.router.close();
     this.userKeysById.clear();
     this.displayNamesByKey.clear();
+  }
+
+  scheduleDisconnect(
+    userId: string,
+    socketId: string,
+    delayMs: number,
+    onExpire: () => void,
+  ): void {
+    this.clearPendingDisconnect(userId);
+    const timeout = setTimeout(() => {
+      const pending = this.pendingDisconnects.get(userId);
+      if (!pending || pending.socketId !== socketId) return;
+      this.pendingDisconnects.delete(userId);
+      onExpire();
+    }, delayMs);
+    this.pendingDisconnects.set(userId, { timeout, socketId });
+  }
+
+  clearPendingDisconnect(userId: string, socketId?: string): boolean {
+    const pending = this.pendingDisconnects.get(userId);
+    if (!pending) return false;
+    if (socketId && pending.socketId !== socketId) return false;
+    clearTimeout(pending.timeout);
+    this.pendingDisconnects.delete(userId);
+    return true;
+  }
+
+  hasPendingDisconnect(userId: string, socketId?: string): boolean {
+    const pending = this.pendingDisconnects.get(userId);
+    if (!pending) return false;
+    if (socketId && pending.socketId !== socketId) return false;
+    return true;
   }
 
   startCleanupTimer(callback: () => void) {

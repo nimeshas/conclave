@@ -72,7 +72,9 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
           }
           room = await getOrCreateRoom(state, clientId, roomId);
           createdRoom = true;
-        } else if (room.getClient(userId)) {
+        }
+        const wasReconnecting = room.clearPendingDisconnect(userId);
+        if (room.getClient(userId)) {
           Logger.warn(`User ${userId} re-joining room ${roomId}`);
           room.removeClient(userId);
         }
@@ -239,27 +241,31 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
 
         const resolvedDisplayName =
           context.currentRoom.getDisplayNameForUser(userId) || displayName;
-        if (context.currentClient.isGhost) {
-          emitUserJoined(context.currentRoom, userId, resolvedDisplayName, {
-            ghostOnly: true,
-            excludeUserId: userId,
-            isGhost: true,
-          });
-          for (const [clientId, client] of context.currentRoom.clients) {
-            if (clientId === userId || !client.isGhost) continue;
-            const ghostDisplayName =
-              context.currentRoom.getDisplayNameForUser(clientId) || clientId;
-            socket.emit("userJoined", {
-              userId: clientId,
-              displayName: ghostDisplayName,
+        if (!wasReconnecting) {
+          if (context.currentClient.isGhost) {
+            emitUserJoined(context.currentRoom, userId, resolvedDisplayName, {
+              ghostOnly: true,
+              excludeUserId: userId,
               isGhost: true,
+            });
+            for (const [clientId, client] of context.currentRoom.clients) {
+              if (clientId === userId || !client.isGhost) continue;
+              const ghostDisplayName =
+                context.currentRoom.getDisplayNameForUser(clientId) || clientId;
+              socket.emit("userJoined", {
+                userId: clientId,
+                displayName: ghostDisplayName,
+                isGhost: true,
+              });
+            }
+          } else {
+            socket.to(roomChannelId).emit("userJoined", {
+              userId,
+              displayName: resolvedDisplayName,
             });
           }
         } else {
-          socket.to(roomChannelId).emit("userJoined", {
-            userId,
-            displayName: resolvedDisplayName,
-          });
+          Logger.info(`User ${userId} reconnected to room ${roomId}.`);
         }
 
         const displayNameSnapshot = context.currentRoom.getDisplayNameSnapshot({

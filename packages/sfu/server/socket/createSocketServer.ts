@@ -14,11 +14,24 @@ export const createSfuSocketServer = (
   httpServer: HttpServer,
   options: CreateSocketServerOptions,
 ): SocketIOServer => {
+  const socketConfig = options.config ?? defaultConfig;
+  const connectionStateRecovery =
+    socketConfig.socket.recoveryMaxDisconnectionMs > 0
+      ? {
+          maxDisconnectionDuration:
+            socketConfig.socket.recoveryMaxDisconnectionMs,
+          skipMiddlewares: true,
+        }
+      : undefined;
+
   const io = new SocketIOServer(httpServer, {
     cors: {
       origin: "*",
       methods: ["GET", "POST"],
     },
+    pingInterval: socketConfig.socket.pingIntervalMs,
+    pingTimeout: socketConfig.socket.pingTimeoutMs,
+    connectionStateRecovery,
   });
 
   attachSocketAuth(io, { config: options.config });

@@ -67,6 +67,14 @@ export interface ConnectTransportData {
   dtlsParameters: DtlsParameters;
 }
 
+export interface RestartIceData {
+  transport: "producer" | "consumer";
+}
+
+export interface RestartIceResponse {
+  iceParameters: object;
+}
+
 export interface ProduceData {
   transportId: string;
   kind: MediaKind;

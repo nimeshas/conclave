@@ -11,6 +11,7 @@ import {
   RECONNECT_DELAY_MS,
   SOCKET_TIMEOUT_MS,
   STANDARD_VIDEO_MAX_BITRATE,
+  TRANSPORT_DISCONNECT_GRACE_MS,
 } from "../constants";
 import type {
   ChatMessage,
@@ -27,6 +28,7 @@ import type {
   DtlsParameters,
   RtpParameters,
   TransportResponse,
+  RestartIceResponse,
   VideoQuality,
 } from "../types";
 import type { ParticipantAction } from "../participant-reducer";
@@ -158,6 +160,9 @@ export function useMeetSocket({
     joinOptionsRef,
     localStreamRef,
     sessionIdRef,
+    producerTransportDisconnectTimeoutRef,
+    consumerTransportDisconnectTimeoutRef,
+    iceRestartInFlightRef,
   } = refs;
 
   const cleanupRoomResources = useCallback(
@@ -202,6 +207,14 @@ export function useMeetSocket({
       } catch { }
       producerTransportRef.current = null;
       consumerTransportRef.current = null;
+      if (producerTransportDisconnectTimeoutRef.current) {
+        window.clearTimeout(producerTransportDisconnectTimeoutRef.current);
+        producerTransportDisconnectTimeoutRef.current = null;
+      }
+      if (consumerTransportDisconnectTimeoutRef.current) {
+        window.clearTimeout(consumerTransportDisconnectTimeoutRef.current);
+        consumerTransportDisconnectTimeoutRef.current = null;
+      }
 
       dispatchParticipants({ type: "CLEAR_ALL" });
       setIsScreenSharing(false);
@@ -229,6 +242,8 @@ export function useMeetSocket({
       setPendingUsers,
       clearReactions,
       videoProducerRef,
+      producerTransportDisconnectTimeoutRef,
+      consumerTransportDisconnectTimeoutRef,
     ]
   );
 
@@ -342,6 +357,55 @@ export function useMeetSocket({
     ]
   );
 
+  const attemptIceRestart = useCallback(
+    async (transportKind: "producer" | "consumer"): Promise<boolean> => {
+      const socket = socketRef.current;
+      if (!socket || !socket.connected) return false;
+
+      const transport =
+        transportKind === "producer"
+          ? producerTransportRef.current
+          : consumerTransportRef.current;
+
+      if (!transport) return false;
+
+      const inFlight = iceRestartInFlightRef.current;
+      if (inFlight[transportKind]) return false;
+      inFlight[transportKind] = true;
+
+      try {
+        const response = await new Promise<RestartIceResponse>(
+          (resolve, reject) => {
+            socket.emit(
+              "restartIce",
+              { transport: transportKind },
+              (res: RestartIceResponse | { error: string }) => {
+                if ("error" in res) {
+                  reject(new Error(res.error));
+                } else {
+                  resolve(res);
+                }
+              },
+            );
+          },
+        );
+
+        await transport.restartIce({ iceParameters: response.iceParameters });
+        console.log(`[Meets] ${transportKind} transport ICE restart succeeded.`);
+        return true;
+      } catch (err) {
+        console.error(
+          `[Meets] ${transportKind} transport ICE restart failed:`,
+          err,
+        );
+        return false;
+      } finally {
+        inFlight[transportKind] = false;
+      }
+    },
+    [socketRef, producerTransportRef, consumerTransportRef, iceRestartInFlightRef],
+  );
+
   const createProducerTransport = useCallback(
     async (socket: Socket, device: Device): Promise<void> => {
       return new Promise((resolve, reject) => {
@@ -406,14 +470,61 @@ export function useMeetSocket({
 
             transport.on("connectionstatechange", (state: string) => {
               console.log("[Meets] Producer transport state:", state);
-              if (state === "failed" || state === "disconnected") {
+              if (state === "connected") {
+                if (producerTransportDisconnectTimeoutRef.current) {
+                  window.clearTimeout(
+                    producerTransportDisconnectTimeoutRef.current,
+                  );
+                  producerTransportDisconnectTimeoutRef.current = null;
+                }
+                return;
+              }
+
+              if (state === "disconnected") {
+                if (
+                  !intentionalDisconnectRef.current &&
+                  !producerTransportDisconnectTimeoutRef.current
+                ) {
+                  producerTransportDisconnectTimeoutRef.current =
+                    window.setTimeout(() => {
+                      producerTransportDisconnectTimeoutRef.current = null;
+                      if (
+                        !intentionalDisconnectRef.current &&
+                        transport.connectionState === "disconnected"
+                      ) {
+                        attemptIceRestart("producer").then((restarted) => {
+                          if (!restarted) {
+                            setMeetError({
+                              code: "TRANSPORT_ERROR",
+                              message: "Producer transport interrupted",
+                              recoverable: true,
+                            });
+                            handleReconnectRef.current?.();
+                          }
+                        });
+                      }
+                    }, TRANSPORT_DISCONNECT_GRACE_MS);
+                }
+                return;
+              }
+
+              if (producerTransportDisconnectTimeoutRef.current) {
+                window.clearTimeout(producerTransportDisconnectTimeoutRef.current);
+                producerTransportDisconnectTimeoutRef.current = null;
+              }
+
+              if (state === "failed") {
                 if (!intentionalDisconnectRef.current) {
-                  setMeetError({
-                    code: "TRANSPORT_ERROR",
-                    message: "Producer transport interrupted",
-                    recoverable: true,
+                  attemptIceRestart("producer").then((restarted) => {
+                    if (!restarted) {
+                      setMeetError({
+                        code: "TRANSPORT_ERROR",
+                        message: "Producer transport failed",
+                        recoverable: true,
+                      });
+                      handleReconnectRef.current?.();
+                    }
                   });
-                  handleReconnectRef.current?.();
                 }
               } else if (state === "closed") {
                 if (!intentionalDisconnectRef.current) {
@@ -432,7 +543,14 @@ export function useMeetSocket({
         );
       });
     },
-    [producerTransportRef, setMeetError, handleReconnectRef, intentionalDisconnectRef]
+    [
+      producerTransportRef,
+      setMeetError,
+      handleReconnectRef,
+      intentionalDisconnectRef,
+      producerTransportDisconnectTimeoutRef,
+      attemptIceRestart,
+    ]
   );
 
   const createConsumerTransport = useCallback(
@@ -473,9 +591,51 @@ export function useMeetSocket({
 
             transport.on("connectionstatechange", (state: string) => {
               console.log("[Meets] Consumer transport state:", state);
-              if (state === "failed" || state === "disconnected") {
+              if (state === "connected") {
+                if (consumerTransportDisconnectTimeoutRef.current) {
+                  window.clearTimeout(
+                    consumerTransportDisconnectTimeoutRef.current,
+                  );
+                  consumerTransportDisconnectTimeoutRef.current = null;
+                }
+                return;
+              }
+
+              if (state === "disconnected") {
+                if (
+                  !intentionalDisconnectRef.current &&
+                  !consumerTransportDisconnectTimeoutRef.current
+                ) {
+                  consumerTransportDisconnectTimeoutRef.current =
+                    window.setTimeout(() => {
+                      consumerTransportDisconnectTimeoutRef.current = null;
+                      if (
+                        !intentionalDisconnectRef.current &&
+                        transport.connectionState === "disconnected"
+                      ) {
+                        attemptIceRestart("consumer").then((restarted) => {
+                          if (!restarted) {
+                            handleReconnectRef.current?.();
+                          }
+                        });
+                      }
+                    }, TRANSPORT_DISCONNECT_GRACE_MS);
+                }
+                return;
+              }
+
+              if (consumerTransportDisconnectTimeoutRef.current) {
+                window.clearTimeout(consumerTransportDisconnectTimeoutRef.current);
+                consumerTransportDisconnectTimeoutRef.current = null;
+              }
+
+              if (state === "failed") {
                 if (!intentionalDisconnectRef.current) {
-                  handleReconnectRef.current?.();
+                  attemptIceRestart("consumer").then((restarted) => {
+                    if (!restarted) {
+                      handleReconnectRef.current?.();
+                    }
+                  });
                 }
               }
             });
@@ -486,7 +646,13 @@ export function useMeetSocket({
         );
       });
     },
-    [consumerTransportRef, handleReconnectRef, intentionalDisconnectRef]
+    [
+      consumerTransportRef,
+      handleReconnectRef,
+      intentionalDisconnectRef,
+      consumerTransportDisconnectTimeoutRef,
+      attemptIceRestart,
+    ]
   );
 
   const produce = useCallback(

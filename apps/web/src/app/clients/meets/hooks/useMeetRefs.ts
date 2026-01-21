@@ -55,6 +55,12 @@ export function useMeetRefs() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const sessionIdRef = useRef<string>(generateSessionId());
   const isHandRaisedRef = useRef(false);
+  const producerTransportDisconnectTimeoutRef = useRef<number | null>(null);
+  const consumerTransportDisconnectTimeoutRef = useRef<number | null>(null);
+  const iceRestartInFlightRef = useRef({
+    producer: false,
+    consumer: false,
+  });
 
   return {
     socketRef,
@@ -88,6 +94,9 @@ export function useMeetRefs() {
     localStreamRef,
     sessionIdRef,
     isHandRaisedRef,
+    producerTransportDisconnectTimeoutRef,
+    consumerTransportDisconnectTimeoutRef,
+    iceRestartInFlightRef,
   };
 }
 

@@ -1,5 +1,6 @@
 import { Admin } from "../../../config/classes/Admin.js";
 import type { Room } from "../../../config/classes/Room.js";
+import { config } from "../../../config/config.js";
 import { Logger } from "../../../utilities/loggers.js";
 import { cleanupRoom } from "../../rooms.js";
 import { emitUserLeft } from "../../notifications.js";
@@ -19,40 +20,54 @@ const promoteNextAdmin = (room: Room): Admin | null => {
 export const registerDisconnectHandlers = (
   context: ConnectionContext,
 ): void => {
-  const { socket, state } = context;
+  const { socket, state, io } = context;
 
-  socket.on("disconnect", () => {
-    Logger.info(`Client disconnected: ${socket.id}`);
+  socket.on("disconnect", (reason) => {
+    Logger.info(`Client disconnected: ${socket.id} (${reason})`);
 
     if (context.currentRoom && context.currentClient) {
+      const room = context.currentRoom;
       const userId = context.currentClient.id;
-      const roomId = context.currentRoom.id;
-      const roomChannelId = context.currentRoom.channelId;
-      const wasAdmin = context.currentClient instanceof Admin;
-      const activeClient = context.currentRoom.getClient(userId);
+      const roomId = room.id;
+      const roomChannelId = room.channelId;
+      const disconnectedSocketId = socket.id;
 
-      if (!activeClient) {
-        Logger.info(
-          `Stale disconnect for ${userId} in room ${roomId}; client already removed.`,
-        );
-      } else if (activeClient !== context.currentClient) {
-        Logger.info(
-          `Stale disconnect for ${userId} in room ${roomId}; active session exists.`,
-        );
-      } else {
-        context.currentRoom.removeClient(userId);
-        if (context.currentClient.isGhost) {
-          emitUserLeft(context.currentRoom, userId, {
+      const finalizeDisconnect = () => {
+        const activeRoom = state.rooms.get(roomChannelId);
+        if (!activeRoom) {
+          return;
+        }
+        const activeClient = activeRoom.getClient(userId);
+
+        if (!activeClient) {
+          Logger.info(
+            `Stale disconnect for ${userId} in room ${roomId}; client already removed.`,
+          );
+          return;
+        }
+        if (activeClient.socket.id !== disconnectedSocketId) {
+          Logger.info(
+            `Stale disconnect for ${userId} in room ${roomId}; active session exists.`,
+          );
+          return;
+        }
+
+        const wasAdmin = activeClient instanceof Admin;
+        const isGhost = activeClient.isGhost;
+
+        activeRoom.removeClient(userId);
+        if (isGhost) {
+          emitUserLeft(activeRoom, userId, {
             ghostOnly: true,
             excludeUserId: userId,
           });
         } else {
-          socket.to(roomChannelId).emit("userLeft", { userId });
+          io.to(roomChannelId).emit("userLeft", { userId });
         }
 
         if (wasAdmin) {
-          if (!context.currentRoom.hasActiveAdmin()) {
-            const promoted = promoteNextAdmin(context.currentRoom);
+          if (!activeRoom.hasActiveAdmin()) {
+            const promoted = promoteNextAdmin(activeRoom);
             if (promoted) {
               Logger.info(
                 `Promoted ${promoted.id} to admin in room ${roomId} after host disconnect.`,
@@ -61,14 +76,14 @@ export const registerDisconnectHandlers = (
                 ?.context as ConnectionContext | undefined;
               if (promotedContext) {
                 promotedContext.currentClient = promoted;
-                promotedContext.currentRoom = context.currentRoom;
+                promotedContext.currentRoom = activeRoom;
                 registerAdminHandlers(promotedContext, { roomId });
               }
-              if (context.currentRoom.cleanupTimer) {
-                context.currentRoom.stopCleanupTimer();
+              if (activeRoom.cleanupTimer) {
+                activeRoom.stopCleanupTimer();
               }
               const pendingUsers = Array.from(
-                context.currentRoom.pendingClients.values(),
+                activeRoom.pendingClients.values(),
               ).map((pending) => ({
                 userId: pending.userKey,
                 displayName: pending.displayName || pending.userKey,
@@ -78,12 +93,12 @@ export const registerDisconnectHandlers = (
                 roomId,
               });
               promoted.socket.emit("roomLockChanged", {
-                locked: context.currentRoom.isLocked,
+                locked: activeRoom.isLocked,
                 roomId,
               });
               promoted.socket.emit("hostAssigned", { roomId });
-              if (context.currentRoom.pendingClients.size > 0) {
-                for (const pending of context.currentRoom.pendingClients.values()) {
+              if (activeRoom.pendingClients.size > 0) {
+                for (const pending of activeRoom.pendingClients.values()) {
                   pending.socket.emit("waitingRoomStatus", {
                     message: "A host is available to let you in.",
                     roomId,
@@ -94,33 +109,33 @@ export const registerDisconnectHandlers = (
               Logger.info(
                 `Last admin left room ${roomId}. Room remains open without an admin.`,
               );
-              if (context.currentRoom.pendingClients.size > 0) {
+              if (activeRoom.pendingClients.size > 0) {
                 Logger.info(
                   `Room ${roomId} has pending users but no admins. Notifying waiting clients.`,
                 );
-                for (const pending of context.currentRoom.pendingClients.values()) {
+                for (const pending of activeRoom.pendingClients.values()) {
                   pending.socket.emit("waitingRoomStatus", {
                     message: "No one to let you in.",
                     roomId,
                   });
                 }
               }
-              context.currentRoom.startCleanupTimer(() => {
+              activeRoom.startCleanupTimer(() => {
                 if (state.rooms.has(roomChannelId)) {
-                  const room = state.rooms.get(roomChannelId);
-                  if (room) {
-                    if (room.hasActiveAdmin()) {
+                  const roomInState = state.rooms.get(roomChannelId);
+                  if (roomInState) {
+                    if (roomInState.hasActiveAdmin()) {
                       return;
                     }
-                    if (room.pendingClients.size > 0) {
-                      for (const pending of room.pendingClients.values()) {
+                    if (roomInState.pendingClients.size > 0) {
+                      for (const pending of roomInState.pendingClients.values()) {
                         pending.socket.emit("waitingRoomStatus", {
                           message: "No one to let you in.",
                           roomId,
                         });
                       }
                     }
-                    if (room.isEmpty()) {
+                    if (roomInState.isEmpty()) {
                       Logger.info(
                         `Cleanup executed for room ${roomId}. Room is empty.`,
                       );
@@ -146,16 +161,40 @@ export const registerDisconnectHandlers = (
         Logger.info(`User ${userId} left room ${roomId}`);
 
         if (state.rooms.has(roomChannelId)) {
-          const room = state.rooms.get(roomChannelId);
-          if (room) {
-            const newQuality = room.updateVideoQuality();
+          const roomInState = state.rooms.get(roomChannelId);
+          if (roomInState) {
+            const newQuality = roomInState.updateVideoQuality();
             if (newQuality) {
-              socket
-                .to(roomChannelId)
-                .emit("setVideoQuality", { quality: newQuality });
+              io.to(roomChannelId).emit("setVideoQuality", {
+                quality: newQuality,
+              });
             }
           }
         }
+      };
+
+      const graceMs = config.socket.disconnectGraceMs;
+      const immediateReasons = new Set([
+        "client namespace disconnect",
+        "server namespace disconnect",
+        "server shutting down",
+        "forced close",
+        "forced server close",
+      ]);
+      const shouldDelay = graceMs > 0 && !immediateReasons.has(reason);
+
+      if (shouldDelay) {
+        room.scheduleDisconnect(
+          userId,
+          disconnectedSocketId,
+          graceMs,
+          finalizeDisconnect,
+        );
+        Logger.info(
+          `Delaying disconnect cleanup for ${userId} in room ${roomId} by ${graceMs}ms.`,
+        );
+      } else {
+        finalizeDisconnect();
       }
     }
 
