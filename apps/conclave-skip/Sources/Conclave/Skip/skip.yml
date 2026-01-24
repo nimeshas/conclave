@@ -1,0 +1,14 @@
+# Configuration file for https://skip.tools project
+#
+# Kotlin dependencies and Gradle build options for this module can be configured here
+build:
+  contents:
+    - block: 'dependencies'
+      contents:
+        - 'implementation("io.socket:socket.io-client:2.1.1")'
+        - 'implementation("com.mediasfu:mediasoup-client:1.0.0")'
+        - 'implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")'
+
+# this is a transpiled Skip Lite module
+skip:
+  mode: 'transpiled'

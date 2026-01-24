@@ -39,7 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
 /app/generated/
 /sfu/certs/cert.key
 /sfu/certs/cert.crt
@@ -55,3 +54,5 @@ DerivedData
 xcuserdata
 *.moved-aside
 *.xcworkspace/xcuserdata
+apps/conclave-skip/.deps
+.xcode-packages
