@@ -113,8 +113,8 @@ function MobileJoinScreen({
   const inlineSuggestion = roomSuggestions[0] ?? "";
   const suggestionSuffix =
     inlineSuggestion &&
-    currentSegment &&
-    inlineSuggestion.startsWith(currentSegment)
+      currentSegment &&
+      inlineSuggestion.startsWith(currentSegment)
       ? inlineSuggestion.slice(currentSegment.length)
       : "";
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -336,14 +336,14 @@ function MobileJoinScreen({
           >
             welcome to
           </div>
-          <h1 
+          <h1
             className="text-4xl text-[#FEFCD9] tracking-tight"
             style={{ fontFamily: "'PolySans Bulky Wide', sans-serif" }}
           >
             c0nclav3
           </h1>
         </div>
-        <p 
+        <p
           className="relative z-10 text-sm text-[#FEFCD9]/30 mb-10 text-center"
           style={{ fontFamily: "'PolySans Trial', sans-serif" }}
         >
@@ -376,13 +376,13 @@ function MobileJoinScreen({
         </button>
 
         <div className="relative z-10 flex-1 flex flex-col justify-center">
-          <h2 
+          <h2
             className="text-2xl text-[#FEFCD9] mb-2 text-center"
             style={{ fontFamily: "'PolySans Bulky Wide', sans-serif" }}
           >
             Join
           </h2>
-          <p 
+          <p
             className="text-xs text-[#FEFCD9]/40 uppercase tracking-widest text-center mb-8"
             style={{ fontFamily: "'PolySans Mono', monospace" }}
           >
@@ -421,7 +421,7 @@ function MobileJoinScreen({
 
           <div className="flex items-center gap-4 my-6">
             <div className="flex-1 h-px bg-[#FEFCD9]/10" />
-            <span 
+            <span
               className="text-[10px] text-[#FEFCD9]/30 uppercase tracking-widest"
               style={{ fontFamily: "'PolySans Mono', monospace" }}
             >
@@ -482,17 +482,15 @@ function MobileJoinScreen({
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-2">
           <button
             onClick={toggleMic}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 ${
-              isMicOn ? "text-[#FEFCD9] hover:bg-white/10" : "bg-red-500 text-white"
-            }`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 ${isMicOn ? "text-[#FEFCD9] hover:bg-white/10" : "bg-red-500 text-white"
+              }`}
           >
             {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
           </button>
           <button
             onClick={toggleCamera}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 ${
-              isCameraOn ? "text-[#FEFCD9] hover:bg-white/10" : "bg-red-500 text-white"
-            }`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 ${isCameraOn ? "text-[#FEFCD9] hover:bg-white/10" : "bg-red-500 text-white"
+              }`}
           >
             {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
           </button>
@@ -535,17 +533,15 @@ function MobileJoinScreen({
           <span className="text-[#FEFCD9]/40">Preflight</span>
           <div className="flex items-center gap-2 bg-black/40 border border-[#FEFCD9]/10 rounded-full px-3 py-1 text-[#FEFCD9]/70">
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isMicOn ? "bg-emerald-400" : "bg-[#F95F4A]"
-              }`}
+              className={`w-1.5 h-1.5 rounded-full ${isMicOn ? "bg-emerald-400" : "bg-[#F95F4A]"
+                }`}
             />
             Mic {isMicOn ? "On" : "Off"}
           </div>
           <div className="flex items-center gap-2 bg-black/40 border border-[#FEFCD9]/10 rounded-full px-3 py-1 text-[#FEFCD9]/70">
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isCameraOn ? "bg-emerald-400" : "bg-[#F95F4A]"
-              }`}
+              className={`w-1.5 h-1.5 rounded-full ${isCameraOn ? "bg-emerald-400" : "bg-[#F95F4A]"
+                }`}
             />
             Camera {isCameraOn ? "On" : "Off"}
           </div>
@@ -566,11 +562,10 @@ function MobileJoinScreen({
                 setActiveTab("new");
                 onIsAdminChange(true);
               }}
-              className={`flex-1 py-2.5 text-xs uppercase tracking-wider rounded-md transition-all ${
-                activeTab === "new"
-                  ? "bg-[#F95F4A] text-white"
-                  : "text-[#FEFCD9]/50"
-              }`}
+              className={`flex-1 py-2.5 text-xs uppercase tracking-wider rounded-md transition-all ${activeTab === "new"
+                ? "bg-[#F95F4A] text-white"
+                : "text-[#FEFCD9]/50"
+                }`}
               style={{ fontFamily: "'PolySans Mono', monospace" }}
             >
               New Meeting
@@ -580,11 +575,10 @@ function MobileJoinScreen({
                 setActiveTab("join");
                 onIsAdminChange(false);
               }}
-              className={`flex-1 py-2.5 text-xs uppercase tracking-wider rounded-md transition-all ${
-                activeTab === "join"
-                  ? "bg-[#F95F4A] text-white"
-                  : "text-[#FEFCD9]/50"
-              }`}
+              className={`flex-1 py-2.5 text-xs uppercase tracking-wider rounded-md transition-all ${activeTab === "join"
+                ? "bg-[#F95F4A] text-white"
+                : "text-[#FEFCD9]/50"
+                }`}
               style={{ fontFamily: "'PolySans Mono', monospace" }}
             >
               Join
@@ -683,7 +677,7 @@ function MobileJoinScreen({
               }
               onPrimaryAction={
                 meetError.code === "PERMISSION_DENIED" ||
-                meetError.code === "MEDIA_ERROR"
+                  meetError.code === "MEDIA_ERROR"
                   ? onRetryMedia
                   : undefined
               }
