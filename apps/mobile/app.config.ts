@@ -34,14 +34,26 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const androidGoogleScheme = getGoogleSchemeFromClientId(
     process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
   );
-  const existingAndroidIntentFilters = baseConfig.android?.intentFilters ?? [];
+  const existingAndroidIntentFilters = baseConfig.android?.intentFilters;
+  const normalizedAndroidIntentFilters = existingAndroidIntentFilters
+    ? Array.isArray(existingAndroidIntentFilters)
+      ? existingAndroidIntentFilters
+      : [existingAndroidIntentFilters]
+    : [];
+  const hasAndroidGoogleScheme = normalizedAndroidIntentFilters.some((filter) => {
+    const data = filter.data;
+    const normalizedData = data
+      ? Array.isArray(data)
+        ? data
+        : [data]
+      : [];
+    return normalizedData.some((entry) => entry.scheme === androidGoogleScheme);
+  });
   const androidIntentFilters =
     androidGoogleScheme &&
-    !existingAndroidIntentFilters.some((filter) =>
-      filter.data?.some((entry) => entry.scheme === androidGoogleScheme)
-    )
+    !hasAndroidGoogleScheme
       ? [
-          ...existingAndroidIntentFilters,
+          ...normalizedAndroidIntentFilters,
           {
             action: "VIEW",
             data: [
