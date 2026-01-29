@@ -147,6 +147,7 @@ export function JoinScreen({
   forceJoinOnly = false,
 }: JoinScreenProps) {
   const { layout, isTablet, spacing, width: screenWidth } = useDeviceLayout();
+  const isIpadLayout = isTablet && layout !== "compact";
   const isSignedInUser = Boolean(user && !user.id?.startsWith("guest-"));
   const [phase, setPhase] = useState<Phase>(() => {
     if (forceJoinOnly) return "join";
@@ -410,11 +411,17 @@ export function JoinScreen({
           >
             <ScrollView
               style={styles.flex1}
-              contentContainerStyle={styles.authContent}
+              contentContainerStyle={[
+                styles.authContent,
+                isIpadLayout && styles.authContentTablet,
+              ]}
               keyboardShouldPersistTaps="handled"
               contentInsetAdjustmentBehavior="never"
             >
-              <Animated.View entering={FadeInDown.duration(400)} style={styles.authCard}>
+              <Animated.View
+                entering={FadeInDown.duration(400)}
+                style={[styles.authCard, isIpadLayout && styles.authCardTablet]}
+              >
                 <View style={styles.authHeader}>
                   <Text style={[styles.authTitle, { color: COLORS.cream }]}>
                     Join
@@ -551,7 +558,6 @@ export function JoinScreen({
   }
 
   // iPad-specific layout calculations
-  const isIpadLayout = isTablet && layout !== "compact";
   const maxContentWidth = isIpadLayout ? 1200 : undefined;
   const videoPreviewFlex = isIpadLayout ? 1.15 : undefined;
   const joinCardFlex = isIpadLayout ? 0.85 : undefined;
@@ -914,12 +920,26 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   authContent: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
   },
+  authContentTablet: {
+    paddingHorizontal: 48,
+    paddingVertical: 40,
+    alignItems: "center",
+  },
   authCard: {
     width: "100%",
+  },
+  authCardTablet: {
+    maxWidth: 520,
+    alignSelf: "center",
+    padding: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(254, 252, 217, 0.12)",
+    backgroundColor: "rgba(20, 20, 20, 0.8)",
   },
   authHeader: {
     alignItems: "center",
