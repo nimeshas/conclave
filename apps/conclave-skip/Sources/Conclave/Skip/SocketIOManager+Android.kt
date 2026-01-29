@@ -113,6 +113,12 @@ internal class SocketIOManager {
 
     internal suspend fun connect(sfuURL: String, token: String) {
         if (isConnected) return
+        if (token.isBlank()) {
+            val error = ErrorException("Missing token for SFU connection")
+            connectionError = error
+            onError?.invoke(error)
+            throw error
+        }
 
         val opts = IO.Options().apply {
             forceNew = true
@@ -121,6 +127,7 @@ internal class SocketIOManager {
             reconnectionDelay = 1000
             reconnectionDelayMax = 5000
             query = "token=${java.net.URLEncoder.encode(token, "UTF-8")}"
+            auth = mapOf("token" to token)
         }
 
         val socket = IO.socket(sfuURL, opts)

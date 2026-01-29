@@ -43,6 +43,8 @@ export function ParticipantTile({
   const { isTablet } = useDeviceLayout();
   const videoStream = participant.videoStream;
   const audioStream = participant.audioStream;
+  const hasVideo = !!videoStream && !participant.isCameraOff;
+  const shouldRenderAudioView = !!audioStream && !hasVideo;
 
   const initials = useMemo(() => {
     const parts = displayName.trim().split(/\s+/).filter(Boolean);
@@ -60,7 +62,7 @@ export function ParticipantTile({
 
   return (
     <RNView style={[styles.container, isActiveSpeaker && styles.activeSpeaker]}>
-      {videoStream && !participant.isCameraOff ? (
+      {hasVideo ? (
         <RTCView
           streamURL={videoStream.toURL()}
           style={styles.video}
@@ -82,7 +84,7 @@ export function ParticipantTile({
         </RNView>
       )}
 
-      {audioStream ? (
+      {shouldRenderAudioView ? (
         <RTCView streamURL={audioStream.toURL()} style={hiddenAudioStyle} />
       ) : null}
 

@@ -1,7 +1,7 @@
+"use client";
+
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PermissionsAndroid, Platform, type Permission } from "react-native";
 import type { Socket } from "socket.io-client";
-import { mediaDevices } from "react-native-webrtc";
 import {
   DEFAULT_AUDIO_CONSTRAINTS,
   LOW_QUALITY_CONSTRAINTS,
@@ -9,7 +9,7 @@ import {
   OPUS_MAX_AVERAGE_BITRATE,
   STANDARD_QUALITY_CONSTRAINTS,
   STANDARD_VIDEO_MAX_BITRATE,
-} from "../constants";
+} from "../lib/constants";
 import type {
   MediaState,
   MeetError,
@@ -17,8 +17,8 @@ import type {
   ProducerType,
   Transport,
   VideoQuality,
-} from "../types";
-import { createMeetError } from "../utils";
+} from "../lib/types";
+import { createMeetError } from "../lib/utils";
 
 interface UseMeetMediaOptions {
   ghostEnabled: boolean;
@@ -29,8 +29,6 @@ interface UseMeetMediaOptions {
   setIsCameraOff: (value: boolean) => void;
   isScreenSharing: boolean;
   setIsScreenSharing: (value: boolean) => void;
-  setScreenShareStream: (stream: MediaStream | null) => void;
-  screenShareStreamRef: React.MutableRefObject<MediaStream | null>;
   activeScreenShareId: string | null;
   setActiveScreenShareId: (value: string | null) => void;
   localStream: MediaStream | null;
@@ -51,9 +49,7 @@ interface UseMeetMediaOptions {
   intentionalTrackStopsRef: React.MutableRefObject<
     WeakSet<MediaStreamTrack>
   >;
-  permissionHintTimeoutRef: React.MutableRefObject<
-    ReturnType<typeof setTimeout> | null
-  >;
+  permissionHintTimeoutRef: React.MutableRefObject<number | null>;
   audioContextRef: React.MutableRefObject<AudioContext | null>;
 }
 
@@ -66,8 +62,6 @@ export function useMeetMedia({
   setIsCameraOff,
   isScreenSharing,
   setIsScreenSharing,
-  setScreenShareStream,
-  screenShareStreamRef,
   activeScreenShareId,
   setActiveScreenShareId,
   localStream,
@@ -104,76 +98,12 @@ export function useMeetMedia({
     }),
     []
   );
-  const getUserMedia = useCallback(
-    async (
-      constraints:
-        | Parameters<typeof mediaDevices.getUserMedia>[0]
-        | MediaStreamConstraints
-    ) => {
-      if (mediaDevices?.getUserMedia) {
-        return mediaDevices.getUserMedia(
-          constraints as Parameters<typeof mediaDevices.getUserMedia>[0]
-        );
-      }
-      const fallback = globalThis.navigator?.mediaDevices?.getUserMedia;
-      if (fallback) {
-        return fallback.call(
-          globalThis.navigator?.mediaDevices,
-          constraints as MediaStreamConstraints
-        );
-      }
-      throw new Error("getUserMedia is not available");
-    },
-    []
-  );
-  const requestAndroidPermissions = useCallback(
-    async (options: { audio?: boolean; video?: boolean }) => {
-      if (Platform.OS !== "android") {
-        return {
-          audio: options.audio ? true : false,
-          video: options.video ? true : false,
-        };
-      }
-
-      const permissions: Permission[] = [];
-      if (options.audio) {
-        permissions.push(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
-      }
-      if (options.video) {
-        permissions.push(PermissionsAndroid.PERMISSIONS.CAMERA);
-      }
-      if (!permissions.length) {
-        return { audio: false, video: false };
-      }
-
-      const results = await PermissionsAndroid.requestMultiple(permissions);
-      return {
-        audio: options.audio
-          ? results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] ===
-            PermissionsAndroid.RESULTS.GRANTED
-          : false,
-        video: options.video
-          ? results[PermissionsAndroid.PERMISSIONS.CAMERA] ===
-            PermissionsAndroid.RESULTS.GRANTED
-          : false,
-      };
-    },
-    []
-  );
-  const getDisplayMedia = useCallback(async () => {
-    const display = mediaDevices?.getDisplayMedia;
-    if (display) {
-      return display.call(mediaDevices);
-    }
-    return null;
-  }, []);
 
   const getAudioContext = useCallback(() => {
     const AudioContextConstructor =
-      globalThis.AudioContext ||
-      (globalThis as typeof globalThis & {
-        webkitAudioContext?: typeof AudioContext;
-      }).webkitAudioContext;
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
 
     if (!AudioContextConstructor) return null;
 
@@ -309,49 +239,14 @@ export function useMeetMedia({
     MediaStream | null
   > => {
     if (permissionHintTimeoutRef.current) {
-      clearTimeout(permissionHintTimeoutRef.current);
+      window.clearTimeout(permissionHintTimeoutRef.current);
     }
     setShowPermissionHint(false);
-    permissionHintTimeoutRef.current = setTimeout(() => {
+    permissionHintTimeoutRef.current = window.setTimeout(() => {
       setShowPermissionHint(true);
     }, 450);
 
     try {
-      const needsVideo = !isCameraOff;
-      const permissionState = await requestAndroidPermissions({
-        audio: true,
-        video: needsVideo,
-      });
-      const audioAllowed = permissionState.audio;
-      const videoAllowed = needsVideo ? permissionState.video : false;
-
-      if (!audioAllowed) {
-        setIsMuted(true);
-      }
-      if (needsVideo && !videoAllowed) {
-        setIsCameraOff(true);
-      }
-
-      if (!audioAllowed && !videoAllowed) {
-        setMeetError({
-          code: "PERMISSION_DENIED",
-          message: needsVideo
-            ? "Camera/microphone permission denied"
-            : "Microphone permission denied",
-          recoverable: true,
-        });
-        return null;
-      }
-      if (!audioAllowed || (needsVideo && !videoAllowed)) {
-        setMeetError({
-          code: "PERMISSION_DENIED",
-          message: !audioAllowed
-            ? "Microphone permission denied"
-            : "Camera permission denied",
-          recoverable: true,
-        });
-      }
-
       const videoConstraints =
         videoQuality === "low"
           ? { ...LOW_QUALITY_CONSTRAINTS }
@@ -361,9 +256,9 @@ export function useMeetMedia({
         selectedAudioInputDeviceId
       );
 
-      const stream = await getUserMedia({
-        audio: audioAllowed ? audioConstraints : false,
-        video: needsVideo && videoAllowed ? videoConstraints : false,
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: isCameraOff ? false : videoConstraints,
       });
 
       setMediaState({
@@ -399,19 +294,11 @@ export function useMeetMedia({
         meetErr.code === "MEDIA_ERROR"
       ) {
         try {
-          const permissionState = await requestAndroidPermissions({
-            audio: true,
-          });
-          if (!permissionState.audio) {
-            setIsMuted(true);
-            return null;
-          }
-
           const audioOnlyConstraints = buildAudioConstraints(
             selectedAudioInputDeviceId
           );
 
-          const audioStream = await getUserMedia({
+          const audioStream = await navigator.mediaDevices.getUserMedia({
             audio: audioOnlyConstraints,
           });
           const audioTrack = audioStream.getAudioTracks()[0];
@@ -433,7 +320,7 @@ export function useMeetMedia({
       return null;
     } finally {
       if (permissionHintTimeoutRef.current) {
-        clearTimeout(permissionHintTimeoutRef.current);
+        window.clearTimeout(permissionHintTimeoutRef.current);
         permissionHintTimeoutRef.current = null;
       }
       setShowPermissionHint(false);
@@ -448,7 +335,6 @@ export function useMeetMedia({
     setMeetError,
     setIsCameraOff,
     setIsMuted,
-    requestAndroidPermissions,
   ]);
 
   const handleAudioInputDeviceChange = useCallback(
@@ -457,7 +343,7 @@ export function useMeetMedia({
 
       if (connectionState === "joined") {
         try {
-          const newStream = await getUserMedia({
+          const newStream = await navigator.mediaDevices.getUserMedia({
             audio: buildAudioConstraints(deviceId),
           });
 
@@ -510,6 +396,34 @@ export function useMeetMedia({
   const handleAudioOutputDeviceChange = useCallback(
     async (deviceId: string) => {
       setSelectedAudioOutputDeviceId(deviceId);
+
+      const audioElements = document.querySelectorAll("audio");
+      for (const audio of audioElements) {
+        const audioElement = audio as HTMLAudioElement & {
+          setSinkId?: (sinkId: string) => Promise<void>;
+        };
+        if (audioElement.setSinkId) {
+          try {
+            await audioElement.setSinkId(deviceId);
+          } catch (err) {
+            console.error("[Meets] Failed to set audio output device:", err);
+          }
+        }
+      }
+
+      const videoElements = document.querySelectorAll("video");
+      for (const video of videoElements) {
+        const videoElement = video as HTMLVideoElement & {
+          setSinkId?: (sinkId: string) => Promise<void>;
+        };
+        if (videoElement.setSinkId) {
+          try {
+            await videoElement.setSinkId(deviceId);
+          } catch (_err) {
+            // Video elements may not have audio
+          }
+        }
+      }
     },
     [setSelectedAudioOutputDeviceId]
   );
@@ -546,7 +460,7 @@ export function useMeetMedia({
           }
         }
 
-        const newStream = await getUserMedia({
+        const newStream = await navigator.mediaDevices.getUserMedia({
           video: constraints,
         });
         const newVideoTrack = newStream.getVideoTracks()[0];
@@ -591,70 +505,6 @@ export function useMeetMedia({
     if (ghostEnabled) return;
     let producer = audioProducerRef.current;
     const nextMuted = !isMuted;
-    const transport = producerTransportRef.current;
-
-    if (!transport) {
-      if (nextMuted) {
-        const currentTrack = localStreamRef.current?.getAudioTracks()[0];
-        if (currentTrack) {
-          stopLocalTrack(currentTrack);
-        }
-        setLocalStream((prev) => {
-          if (!prev) return prev;
-          const remaining = prev
-            .getTracks()
-            .filter((track) => track.kind !== "audio");
-          return new MediaStream(remaining);
-        });
-        setIsMuted(true);
-        return;
-      }
-
-      try {
-        const permissionState = await requestAndroidPermissions({
-          audio: true,
-        });
-        if (!permissionState.audio) {
-          setIsMuted(true);
-          setMeetError({
-            code: "PERMISSION_DENIED",
-            message: "Microphone permission denied",
-            recoverable: true,
-          });
-          return;
-        }
-
-        const stream = await getUserMedia({
-          audio: buildAudioConstraints(selectedAudioInputDeviceId),
-        });
-        const audioTrack = stream.getAudioTracks()[0];
-        if (!audioTrack) throw new Error("No audio track obtained");
-
-        audioTrack.onended = () => {
-          handleLocalTrackEnded("audio", audioTrack);
-        };
-
-        setLocalStream((prev) => {
-          if (prev) {
-            const newStream = new MediaStream(prev.getTracks());
-            newStream.getAudioTracks().forEach((t) => {
-              stopLocalTrack(t);
-              newStream.removeTrack(t);
-            });
-            newStream.addTrack(audioTrack);
-            return newStream;
-          }
-          return new MediaStream([audioTrack]);
-        });
-
-        setIsMuted(false);
-      } catch (err) {
-        console.error("[Meets] Failed to enable audio preview:", err);
-        setIsMuted(true);
-        setMeetError(createMeetError(err, "MEDIA_ERROR"));
-      }
-      return;
-    }
 
     if (producer && producer.track?.readyState !== "live") {
       socketRef.current?.emit(
@@ -704,22 +554,10 @@ export function useMeetMedia({
     }
 
     try {
+      const transport = producerTransportRef.current;
       if (!transport) return;
 
-      const permissionState = await requestAndroidPermissions({
-        audio: true,
-      });
-      if (!permissionState.audio) {
-        setIsMuted(true);
-        setMeetError({
-          code: "PERMISSION_DENIED",
-          message: "Microphone permission denied",
-          recoverable: true,
-        });
-        return;
-      }
-
-      const stream = await getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: buildAudioConstraints(selectedAudioInputDeviceId),
       });
       const audioTrack = stream.getAudioTracks()[0];
@@ -791,80 +629,11 @@ export function useMeetMedia({
     setIsMuted,
     setMeetError,
     OPUS_MAX_AVERAGE_BITRATE,
-    requestAndroidPermissions,
   ]);
 
   const toggleCamera = useCallback(async () => {
     if (ghostEnabled) return;
     const producer = videoProducerRef.current;
-    const transport = producerTransportRef.current;
-
-    if (!transport) {
-      if (isCameraOff) {
-        try {
-          setIsCameraOff(false);
-          const permissionState = await requestAndroidPermissions({
-            video: true,
-          });
-          if (!permissionState.video) {
-            setIsCameraOff(true);
-            setMeetError({
-              code: "PERMISSION_DENIED",
-              message: "Camera permission denied",
-              recoverable: true,
-            });
-            return;
-          }
-
-          const stream = await getUserMedia({
-            video:
-              videoQualityRef.current === "low"
-                ? LOW_QUALITY_CONSTRAINTS
-                : STANDARD_QUALITY_CONSTRAINTS,
-          });
-          const videoTrack = stream.getVideoTracks()[0];
-
-          if (!videoTrack) throw new Error("No video track obtained");
-          if ("contentHint" in videoTrack) {
-            videoTrack.contentHint = "motion";
-          }
-          videoTrack.onended = () => {
-            handleLocalTrackEnded("video", videoTrack);
-          };
-
-          setLocalStream((prev) => {
-            if (prev) {
-              prev.getVideoTracks().forEach((track) => {
-                stopLocalTrack(track);
-              });
-              const remainingTracks = prev
-                .getTracks()
-                .filter((track) => track.kind !== "video");
-              return new MediaStream([...remainingTracks, videoTrack]);
-            }
-            return new MediaStream([videoTrack]);
-          });
-        } catch (err) {
-          console.error("[Meets] Failed to enable video preview:", err);
-          setIsCameraOff(true);
-          setMeetError(createMeetError(err, "MEDIA_ERROR"));
-        }
-        return;
-      }
-
-      setIsCameraOff(true);
-      setLocalStream((prev) => {
-        if (!prev) return prev;
-        prev.getVideoTracks().forEach((track) => {
-          stopLocalTrack(track);
-        });
-        const remainingTracks = prev
-          .getTracks()
-          .filter((track) => track.kind !== "video");
-        return new MediaStream(remainingTracks);
-      });
-      return;
-    }
 
     if (producer) {
       const newCameraOff = !isCameraOff;
@@ -932,20 +701,7 @@ export function useMeetMedia({
         const transport = producerTransportRef.current;
         if (!transport) return;
 
-        const permissionState = await requestAndroidPermissions({
-          video: true,
-        });
-        if (!permissionState.video) {
-          setIsCameraOff(true);
-          setMeetError({
-            code: "PERMISSION_DENIED",
-            message: "Camera permission denied",
-            recoverable: true,
-          });
-          return;
-        }
-
-        const stream = await getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video:
             videoQualityRef.current === "low"
               ? LOW_QUALITY_CONSTRAINTS
@@ -1008,7 +764,6 @@ export function useMeetMedia({
     setMeetError,
     LOW_VIDEO_MAX_BITRATE,
     STANDARD_VIDEO_MAX_BITRATE,
-    requestAndroidPermissions,
   ]);
 
   const toggleScreenShare = useCallback(async () => {
@@ -1029,13 +784,6 @@ export function useMeetMedia({
         }
       }
       screenProducerRef.current = null;
-      if (screenShareStreamRef.current) {
-        screenShareStreamRef.current
-          .getTracks()
-          .forEach((track) => stopLocalTrack(track));
-        screenShareStreamRef.current = null;
-        setScreenShareStream(null);
-      }
       setIsScreenSharing(false);
       return;
     }
@@ -1053,32 +801,20 @@ export function useMeetMedia({
     if (!transport) return;
 
     try {
-      if (Platform.OS === "android" && Platform.Version >= 33) {
-        const status = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-        );
-        if (status !== PermissionsAndroid.RESULTS.GRANTED) {
-          setMeetError(
-            createMeetError(
-              "Allow notifications to start screen sharing on Android."
-            )
-          );
-          return;
-        }
-      }
+      const videoConstraints: MediaTrackConstraints & {
+        cursor?: "always" | "motion" | "never";
+      } = {
+        frameRate: { ideal: 30, max: 60 },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        cursor: "always",
+      };
 
-      const stream = await getDisplayMedia();
-      if (!stream) {
-        throw new Error("Screen sharing is not available on mobile yet.");
-      }
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: videoConstraints,
+        audio: true,
+      });
       const track = stream.getVideoTracks()[0];
-      if (!track) {
-        stream.getTracks().forEach((streamTrack) => stopLocalTrack(streamTrack));
-        throw new Error("No screen video track available.");
-      }
-      track.enabled = true;
-      screenShareStreamRef.current = stream;
-      setScreenShareStream(stream);
       if (track && "contentHint" in track) {
         track.contentHint = "detail";
       }
@@ -1102,47 +838,15 @@ export function useMeetMedia({
           producer.close();
         } catch {}
         screenProducerRef.current = null;
-        if (screenShareStreamRef.current) {
-          screenShareStreamRef.current
-            .getTracks()
-            .forEach((streamTrack) => stopLocalTrack(streamTrack));
-          screenShareStreamRef.current = null;
-          setScreenShareStream(null);
-        }
         setIsScreenSharing(false);
       };
     } catch (err) {
-      if (screenShareStreamRef.current) {
-        screenShareStreamRef.current
-          .getTracks()
-          .forEach((track) => stopLocalTrack(track));
-        screenShareStreamRef.current = null;
-        setScreenShareStream(null);
+      if ((err as Error).name === "NotAllowedError") {
+        console.log("[Meets] Screen share cancelled by user");
+      } else {
+        console.error("[Meets] Error starting screen share:", err);
+        setMeetError(createMeetError(err, "MEDIA_ERROR"));
       }
-      if (
-        err &&
-        typeof err === "object" &&
-        "name" in err &&
-        (err as { name?: string }).name
-      ) {
-        const errorName = String((err as { name?: string }).name);
-        if (errorName === "NotAllowedError" || errorName === "AbortError") {
-          console.log("[Meets] Screen share cancelled or not ready");
-          return;
-        }
-      }
-
-      const message =
-        typeof err === "string"
-          ? err
-          : (err as { message?: string })?.message;
-      if (message?.includes("AbortError")) {
-        console.log("[Meets] Screen share cancelled or not ready");
-        return;
-      }
-
-      console.error("[Meets] Error starting screen share:", err);
-      setMeetError(createMeetError(err, "MEDIA_ERROR"));
     }
   }, [
     ghostEnabled,
@@ -1152,10 +856,7 @@ export function useMeetMedia({
     producerTransportRef,
     screenProducerRef,
     socketRef,
-    setScreenShareStream,
-    screenShareStreamRef,
     setMeetError,
-    stopLocalTrack,
   ]);
 
   useEffect(() => {

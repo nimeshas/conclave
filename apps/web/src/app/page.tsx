@@ -1,4 +1,4 @@
-import MeetsClientShell from "./clients/meets-client-shell";
+import MeetsClientShell from "./meets-client-shell";
 
 export default function HomePage() {
   return <MeetsClientShell />;

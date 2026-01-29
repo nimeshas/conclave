@@ -12,6 +12,8 @@ import Observation
 import UIKit
 #endif
 #if SKIP
+import androidx.compose.foundation.layout.__
+import androidx.compose.ui.unit.__
 #else
 import AVFoundation
 #endif
@@ -85,6 +87,9 @@ struct JoinView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                #if SKIP
+                .composeModifier { $0.imePadding() }
+                #endif
                 
                 if viewModel.state.connectionState == ConnectionState.connecting || viewModel.state.connectionState == ConnectionState.joining {
                     loadingOverlay
@@ -106,39 +111,41 @@ struct JoinView: View {
             Spacer()
             
             Text("welcome to")
-                .font(ACMFont.wide(24))
+                .font(ACMFont.wide(18))
                 .foregroundStyle(ACMColors.creamDim)
-                .tracking(2)
+                .tracking(1.5)
                 .padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
             
             HStack(spacing: 0) {
                 Text("[")
-                    .font(ACMFont.mono(36))
-                    .foregroundStyle(acmColor(red: 249.0, green: 95.0, blue: 74.0, opacity: 0.4))
+                    .font(ACMFont.mono(32, weight: .regular))
+                    .foregroundStyle(acmColor(red: 249.0, green: 95.0, blue: 74.0, opacity: 0.35))
                 
                 Text("c0nclav3")
-                    .font(ACMFont.wide(48))
+                    .font(ACMFont.wide(40))
                     .foregroundStyle(ACMColors.cream)
                     .tracking(-1)
                 
                 Text("]")
-                    .font(ACMFont.mono(36))
-                    .foregroundStyle(acmColor(red: 249.0, green: 95.0, blue: 74.0, opacity: 0.4))
+                    .font(ACMFont.mono(32, weight: .regular))
+                    .foregroundStyle(acmColor(red: 249.0, green: 95.0, blue: 74.0, opacity: 0.35))
             }
             
             Text("ACM-VIT's in-house video conferencing platform")
                 .font(ACMFont.trial(14))
                 .foregroundStyle(ACMColors.creamMuted)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
                 .padding(EdgeInsets(top: 16, leading: 0, bottom: 0, trailing: 0))
                 .padding(EdgeInsets(top: 0, leading: 0, bottom: 48, trailing: 0))
             
             Button {
                 phase = .auth
             } label: {
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     Text("LET'S GO")
-                        .font(ACMFont.mono(12))
-                        .tracking(3)
+                        .font(ACMFont.mono(11))
+                        .tracking(2)
                     
                     ACMSystemIcon.image("arrow.forward", androidName: "Icons.Filled.ArrowForward")
                         .font(.system(size: 14, weight: .medium))
@@ -166,8 +173,8 @@ struct JoinView: View {
                         .font(ACMFont.wide(28))
                         .foregroundStyle(ACMColors.cream)
                     
-                    Text("CHOOSE HOW TO CONTINUE")
-                        .font(ACMFont.mono(10))
+                    Text("choose how to continue")
+                        .font(ACMFont.mono(11))
                         .tracking(2)
                         .foregroundStyle(ACMColors.creamDim)
                 }
@@ -194,13 +201,14 @@ struct JoinView: View {
                         }
                         .foregroundStyle(ACMColors.cream)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 12)
-                        .acmColorBackground(ACMColors.surface)
+                        .frame(minHeight: 48)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 16)
+                        .acmColorBackground(acmColor(red: 26.0, green: 26.0, blue: 26.0, opacity: 0.9))
                         .overlay {
                             RoundedRectangle(cornerRadius: 8)
                                 .strokeBorder(lineWidth: 1)
-                                .foregroundStyle(ACMColors.creamFaint)
+                                .foregroundStyle(ACMColors.creamDim)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
@@ -211,8 +219,8 @@ struct JoinView: View {
                             .fill(ACMColors.creamFaint)
                             .frame(height: 1)
 
-                        Text("OR")
-                            .font(ACMFont.mono(10))
+                        Text("or")
+                            .font(ACMFont.mono(11))
                             .tracking(2)
                             .foregroundStyle(ACMColors.creamMuted)
 
@@ -224,24 +232,24 @@ struct JoinView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("GUEST NAME")
-                        .font(ACMFont.mono(10))
+                    Text("YOUR NAME")
+                        .font(ACMFont.mono(11))
                         .tracking(2)
                         .foregroundStyle(ACMColors.creamDim)
                     
                     TextField("", text: $guestName, prompt: Text("Enter your name").foregroundStyle(acmColor(red: 254.0, green: 252.0, blue: 217.0, opacity: 0.25)))
                         .textFieldStyle(.plain)
-                        .font(ACMFont.trial(14))
+                        .font(ACMFont.trial(15))
                         .foregroundStyle(ACMColors.cream)
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 12)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 16)
                         .acmColorBackground(ACMColors.surface)
                         .overlay {
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: 12)
                                 .strokeBorder(lineWidth: 1)
-                                .foregroundStyle(ACMColors.creamFaint)
+                                .foregroundStyle(ACMColors.creamDim)
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                         .onSubmit {
                             if !trimWhitespace(guestName).isEmpty {
                                 handleGuest()
@@ -252,13 +260,14 @@ struct JoinView: View {
                         handleGuest()
                     } label: {
                         Text("Continue as Guest")
-                            .font(ACMFont.trial(14))
+                            .font(ACMFont.trial(15))
                         .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .frame(minHeight: 48)
+                            .padding(.vertical, 16)
                             .padding(.horizontal, 12)
                             .acmColorBackground(ACMColors.primaryOrange)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
                 
@@ -313,9 +322,15 @@ struct JoinView: View {
     // MARK: - Camera Preview Section
     
     private var cameraPreviewSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Preview")
+                .font(ACMFont.mono(11))
+                .tracking(2)
+                .textCase(.uppercase)
+                .foregroundStyle(ACMColors.creamDim)
+
             // Video preview container
-            ZStack {
+            ZStack(alignment: .topLeading) {
                 // Background
                 RoundedRectangle(cornerRadius: 16)
                     .fill(ACMColors.surface)
@@ -339,36 +354,36 @@ struct JoinView: View {
                     // Avatar when camera off
                     VStack {
                         Circle()
-                            .fill(ACMGradients.avatarBackground)
+                            .fill(ACMColors.primaryOrangeFaint)
                             .frame(width: 80, height: 80)
                             .overlay {
                                 Circle()
                                     .strokeBorder(lineWidth: 1)
-                                    .foregroundStyle(ACMColors.creamSubtle)
+                                    .foregroundStyle(ACMColors.creamDim)
                             }
                             .overlay {
                                 Text(userInitial)
-                                    .font(.system(size: 32, weight: .bold))
+                                    .font(ACMFont.wide(24))
                                     .foregroundStyle(ACMColors.cream)
                             }
                     }
                 }
                 
-                // User email badge (top left)
+                // Name overlay (top left)
                 VStack {
                     HStack {
-                        Text(userEmail)
+                        Text(displayNameInput.isEmpty ? (appState.currentUser?.name ?? "Guest") : displayNameInput)
                             .font(ACMFont.mono(11))
                             .foregroundStyle(acmColor(red: 254.0, green: 252.0, blue: 217.0, opacity: 0.7))
-                .padding(EdgeInsets(top: 0, leading: 10, bottom: 0, trailing: 10))
-                .padding(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-                    .acmColorBackground(Color(red: 0, green: 0, blue: 0, opacity: 0.5))
-                    .acmMaterialBackground(opacity: 0.3)
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .acmColorBackground(Color(red: 0, green: 0, blue: 0, opacity: 0.5))
                             .clipShape(Capsule())
                         
                         Spacer()
                     }
-                .padding(12)
+                    .padding(12)
                     
                     Spacer()
                     
@@ -385,7 +400,7 @@ struct JoinView: View {
                                 .font(.system(size: 16))
                                 .foregroundStyle(Color.white)
                                 .frame(width: 36, height: 36)
-                                .acmColorBackground(isMicOn ? acmColor01(red: 1.0, green: 1.0, blue: 1.0, opacity: 0.1) : acmColor01(red: 1.0, green: 0.0, blue: 0.0))
+                                .acmColorBackground(isMicOn ? Color.clear : acmColor(red: 239.0, green: 68.0, blue: 68.0))
                                 .clipShape(Circle())
                         }
                         
@@ -400,29 +415,30 @@ struct JoinView: View {
                                 .font(.system(size: 16))
                                 .foregroundStyle(Color.white)
                                 .frame(width: 36, height: 36)
-                                .acmColorBackground(isCameraOn ? acmColor01(red: 1.0, green: 1.0, blue: 1.0, opacity: 0.1) : acmColor01(red: 1.0, green: 0.0, blue: 0.0))
+                                .acmColorBackground(isCameraOn ? Color.clear : acmColor(red: 239.0, green: 68.0, blue: 68.0))
                                 .clipShape(Circle())
                         }
                     }
-                .padding(8)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
                     .acmColorBackground(Color(red: 0, green: 0, blue: 0, opacity: 0.5))
-                    .acmMaterialBackground(opacity: 0.3)
                     .clipShape(Capsule())
-                .padding(EdgeInsets(top: 0, leading: 0, bottom: 12, trailing: 0))
+                    .padding(.bottom, 12)
                 }
             }
             .aspectRatio(16.0 / 10.0, contentMode: .fit)
             .overlay {
                 RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(lineWidth: 1)
-                    .foregroundStyle(ACMColors.creamFaint)
+                    .foregroundStyle(ACMColors.creamDim)
             }
             
             // Preflight status indicators
             HStack(spacing: 8) {
-                Text("PREFLIGHT")
-                    .font(ACMFont.mono(10))
-                    .tracking(2)
+                Text("Preflight")
+                    .font(ACMFont.mono(11))
+                    .tracking(1.5)
+                    .textCase(.uppercase)
                     .foregroundStyle(ACMColors.creamDim)
                 
                 // Mic status
@@ -432,16 +448,15 @@ struct JoinView: View {
                         .frame(width: 6, height: 6)
                     
                     Text("Mic \(isMicOn ? "On" : "Off")")
-                        .font(ACMFont.mono(10))
+                        .font(ACMFont.mono(11))
                         .foregroundStyle(acmColor(red: 254.0, green: 252.0, blue: 217.0, opacity: 0.7))
                 }
-                .padding(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
-                .padding(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
                 .acmColorBackground(Color(red: 0, green: 0, blue: 0, opacity: 0.4))
                 .overlay {
-                    Capsule()
-                        .strokeBorder(lineWidth: 1)
-                        .foregroundStyle(ACMColors.creamFaint)
+                    Capsule().strokeBorder(lineWidth: 1)
+                        .foregroundStyle(ACMColors.creamDim)
                 }
                 .clipShape(Capsule())
                 
@@ -452,16 +467,15 @@ struct JoinView: View {
                         .frame(width: 6, height: 6)
                     
                     Text("Camera \(isCameraOn ? "On" : "Off")")
-                        .font(ACMFont.mono(10))
+                        .font(ACMFont.mono(11))
                         .foregroundStyle(acmColor(red: 254.0, green: 252.0, blue: 217.0, opacity: 0.7))
                 }
-                .padding(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
-                .padding(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
                 .acmColorBackground(Color(red: 0, green: 0, blue: 0, opacity: 0.4))
                 .overlay {
-                    Capsule()
-                        .strokeBorder(lineWidth: 1)
-                        .foregroundStyle(ACMColors.creamFaint)
+                    Capsule().strokeBorder(lineWidth: 1)
+                        .foregroundStyle(ACMColors.creamDim)
                 }
                 .clipShape(Capsule())
             }
@@ -478,11 +492,11 @@ struct JoinView: View {
                     activeTab = .new
                 } label: {
                     Text("NEW MEETING")
-                        .font(ACMFont.mono(11))
+                        .font(ACMFont.mono(12))
                         .tracking(1)
                         .foregroundStyle(activeTab == .new ? Color.white : acmColor(red: 254.0, green: 252.0, blue: 217.0, opacity: 0.5))
                         .frame(maxWidth: .infinity)
-                .padding(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                        .padding(.vertical, 10)
                         .acmColorBackground(activeTab == .new ? ACMColors.primaryOrange : Color.clear)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
@@ -491,11 +505,11 @@ struct JoinView: View {
                     activeTab = .join
                 } label: {
                     Text("JOIN")
-                        .font(ACMFont.mono(11))
+                        .font(ACMFont.mono(12))
                         .tracking(1)
                         .foregroundStyle(activeTab == .join ? Color.white : acmColor(red: 254.0, green: 252.0, blue: 217.0, opacity: 0.5))
                         .frame(maxWidth: .infinity)
-                .padding(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                        .padding(.vertical, 10)
                         .acmColorBackground(activeTab == .join ? ACMColors.primaryOrange : Color.clear)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
@@ -511,24 +525,24 @@ struct JoinView: View {
                 VStack(spacing: 16) {
                     // Display name input
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("DISPLAY NAME")
-                            .font(ACMFont.mono(10))
+                        Text("Display Name")
+                            .font(ACMFont.mono(11))
                             .tracking(2)
                             .foregroundStyle(ACMColors.creamDim)
                         
                         TextField("", text: $displayNameInput, prompt: Text("Your name").foregroundStyle(ACMColors.creamMuted))
                             .textFieldStyle(.plain)
-                            .font(ACMFont.trial(14))
+                            .font(ACMFont.trial(15))
                             .foregroundStyle(ACMColors.cream)
-                .padding(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
-                .padding(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                             .acmColorBackground(ACMColors.surface)
                             .overlay {
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: 12)
                                     .strokeBorder(lineWidth: 1)
-                                    .foregroundStyle(ACMColors.creamFaint)
+                                    .foregroundStyle(ACMColors.creamDim)
                             }
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     
                     // Start Meeting button
@@ -548,13 +562,14 @@ struct JoinView: View {
                             }
                             
                             Text("Start Meeting")
-                                .font(ACMFont.trial(14))
+                                .font(ACMFont.trial(15))
                         }
                         .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity)
-                .padding(EdgeInsets(top: 14, leading: 0, bottom: 14, trailing: 0))
+                        .frame(minHeight: 48)
+                        .padding(.vertical, 16)
                         .acmColorBackground(ACMColors.primaryOrange)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 .disabled(viewModel.state.connectionState == ConnectionState.connecting)
                 }
@@ -563,30 +578,28 @@ struct JoinView: View {
                 VStack(spacing: 16) {
                     // Room name input
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("ROOM NAME")
-                            .font(ACMFont.mono(10))
+                        Text("Room Name")
+                            .font(ACMFont.mono(11))
                             .tracking(2)
                             .foregroundStyle(ACMColors.creamDim)
                         
                         TextField("", text: sanitizedRoomCodeBinding, prompt: Text("Paste room link or code").foregroundStyle(ACMColors.creamMuted))
                             .textFieldStyle(.plain)
-                            .font(ACMFont.trial(14))
+                            .font(ACMFont.trial(15))
                             .foregroundStyle(Color.white)
 #if !SKIP
                             .autocapitalization(.none)
                             .autocorrectionDisabled(true)
 #endif
-                            .padding(.leading, 12)
-                            .padding(.trailing, 12)
-                            .padding(.top, 12)
-                            .padding(.bottom, 12)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                             .acmColorBackground(ACMColors.surface)
                             .overlay {
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: 12)
                                     .strokeBorder(lineWidth: 1)
-                                    .foregroundStyle(ACMColors.creamFaint)
+                                    .foregroundStyle(ACMColors.creamDim)
                             }
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                             .onSubmit {
                                 if !roomCode.isEmpty {
                                     handleJoinRoom()
@@ -596,24 +609,24 @@ struct JoinView: View {
                     
                     // Display name input
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("DISPLAY NAME")
-                            .font(ACMFont.mono(10))
+                        Text("Display Name")
+                            .font(ACMFont.mono(11))
                             .tracking(2)
                             .foregroundStyle(ACMColors.creamDim)
                         
                         TextField("", text: $displayNameInput, prompt: Text("Your name").foregroundStyle(ACMColors.creamMuted))
                             .textFieldStyle(.plain)
-                            .font(ACMFont.trial(14))
+                            .font(ACMFont.trial(15))
                             .foregroundStyle(ACMColors.cream)
-                .padding(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
-                .padding(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                             .acmColorBackground(ACMColors.surface)
                             .overlay {
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: 12)
                                     .strokeBorder(lineWidth: 1)
-                                    .foregroundStyle(ACMColors.creamFaint)
+                                    .foregroundStyle(ACMColors.creamDim)
                             }
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     
                     // Join button
@@ -633,13 +646,14 @@ struct JoinView: View {
                             }
                             
                             Text("Join Meeting")
-                                .font(ACMFont.trial(14))
+                                .font(ACMFont.trial(15))
                         }
                             .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity)
-                .padding(EdgeInsets(top: 14, leading: 0, bottom: 14, trailing: 0))
+                        .frame(minHeight: 48)
+                        .padding(.vertical, 16)
                         .acmColorBackground(ACMColors.primaryOrange)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .disabled(roomCode.isEmpty || viewModel.state.connectionState == ConnectionState.connecting)
                     .opacity(roomCode.isEmpty ? 0.3 : 1.0)
@@ -649,12 +663,12 @@ struct JoinView: View {
                 .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(acmColor(red: 26.0, green: 26.0, blue: 26.0, opacity: 0.92))
+                .fill(acmColor(red: 20.0, green: 20.0, blue: 20.0, opacity: 0.8))
         )
         .overlay {
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(lineWidth: 1)
-                .foregroundStyle(ACMColors.creamFaint)
+                .foregroundStyle(ACMColors.creamDim)
         }
     }
     
@@ -684,10 +698,32 @@ struct JoinView: View {
     
     private var dotGridPattern: some View {
         GeometryReader { geometry in
-#if !SKIP
+#if SKIP
+            ComposeView { context in
+                androidx.compose.foundation.Canvas(modifier: context.modifier.fillMaxSize()) {
+                    let spacing = 28.dp.toPx()
+                    let radius = 1.dp.toPx()
+                    let dotColor = androidx.compose.ui.graphics.Color(
+                        red: Float(254.0 / 255.0),
+                        green: Float(252.0 / 255.0),
+                        blue: Float(217.0 / 255.0),
+                        alpha: Float(0.08)
+                    )
+                    var y = Float(0.0)
+                    while (y <= size.height) {
+                        var x = Float(0.0)
+                        while (x <= size.width) {
+                            drawCircle(dotColor, radius, androidx.compose.ui.geometry.Offset(x, y))
+                            x += spacing
+                        }
+                        y += spacing
+                    }
+                }
+            }
+#else
             Canvas { context, size in
-                let spacing: CGFloat = 30
-                let dotSize: CGFloat = 1.5
+                let spacing: CGFloat = 28
+                let dotSize: CGFloat = 2.0
                 
                 for x in stride(from: 0, to: size.width, by: spacing) {
                     for y in stride(from: 0, to: size.height, by: spacing) {
@@ -699,13 +735,11 @@ struct JoinView: View {
                         )
                         context.fill(
                             Path(ellipseIn: rect),
-                            with: GraphicsContext.Shading.color(acmColor(red: 254.0, green: 252.0, blue: 217.0, opacity: 0.035))
+                            with: GraphicsContext.Shading.color(acmColor(red: 254.0, green: 252.0, blue: 217.0, opacity: 0.06))
                         )
                     }
                 }
             }
-#else
-            Color.clear
 #endif
         }
     }

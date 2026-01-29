@@ -1,6 +1,6 @@
 import { use } from "react";
-import MeetsClientShell from "../clients/meets-client-shell";
-import { sanitizeRoomCode } from "../clients/meets/utils";
+import MeetsClientShell from "../meets-client-shell";
+import { sanitizeRoomCode } from "../lib/utils";
 
 type MeetRoomPageProps = {
   params: Promise<{ code: string }>;

@@ -49,23 +49,9 @@ enum ACMColors {
 // MARK: - Gradients
 
 enum ACMGradients {
-    static let primary = LinearGradient(
-        colors: [ACMColors.primaryOrange, ACMColors.primaryPink],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-    
-    static let avatarBackground = LinearGradient(
-        colors: [ACMColors.primaryOrangeGhost, ACMColors.primaryPinkGhost],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-    
-    static let cardBackground = LinearGradient(
-        colors: [ACMColors.surface, ACMColors.darkAlt],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    static let primary: Color = ACMColors.primaryOrange
+    static let avatarBackground: Color = ACMColors.primaryOrangeGhost
+    static let cardBackground: Color = ACMColors.surface
 }
 
 // MARK: - Typography
@@ -110,7 +96,9 @@ enum ACMFont {
     }
 
     static func custom(_ name: String, size: CGFloat, fallback: Font) -> Font {
-        #if canImport(UIKit)
+        #if SKIP
+        return fallback
+        #elseif canImport(UIKit)
         if UIFont(name: name, size: size) != nil {
             return .custom(name, size: size)
         }

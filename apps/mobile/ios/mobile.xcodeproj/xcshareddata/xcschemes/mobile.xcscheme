@@ -20,6 +20,20 @@
                ReferencedContainer = "container:mobile.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "NO"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "9AD2BF55611DDACECFDCC90B"
+               BuildableName = "ScreenShareExtension.appex"
+               BlueprintName = "ScreenShareExtension"
+               ReferencedContainer = "container:mobile.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
