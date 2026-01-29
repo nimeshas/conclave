@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   ArrowLeft,
   ArrowRight,
@@ -601,8 +602,8 @@ export function JoinScreen({
                     <View style={[
                       styles.videoPreview,
                       {
-                        backgroundColor: COLORS.surface,
-                        borderColor: COLORS.creamDim,
+                        backgroundColor: "#0d0e0d",
+                        borderColor: "rgba(254, 252, 217, 0.1)",
                       },
                       isIpadLayout && styles.videoPreviewTablet,
                     ]}>
@@ -614,10 +615,12 @@ export function JoinScreen({
                         />
                       ) : (
                         <View style={styles.noVideoContainer}>
-                          <View style={[styles.userAvatar, {
-                            backgroundColor: COLORS.orangeDim,
-                            borderColor: COLORS.creamDim,
-                          }]}>
+                          <LinearGradient
+                            colors={["rgba(249, 95, 74, 0.2)", "rgba(255, 0, 122, 0.1)"]}
+                            style={styles.previewGradient}
+                          />
+                          <View style={styles.userAvatar}>
+                            <View style={styles.userAvatarBorder} />
                             <Text style={[styles.userInitial, { color: COLORS.cream }]}>
                               {userInitial}
                             </Text>
@@ -673,23 +676,23 @@ export function JoinScreen({
                       <Text style={[styles.preflightLabel, { color: COLORS.creamLight }]}>
                         Preflight
                       </Text>
-                      <View style={[styles.statusPill, { borderColor: COLORS.creamDim }]}>
-                        <View
-                          style={[
-                            styles.statusDot,
-                            { backgroundColor: !isMuted ? "#34d399" : COLORS.primaryOrange },
-                          ]}
+                      <View style={[styles.statusPill, { borderColor: "rgba(254, 252, 217, 0.1)" }]}>
+                          <View
+                            style={[
+                              styles.statusDot,
+                              { backgroundColor: !isMuted ? "#34d399" : COLORS.primaryOrange },
+                            ]}
                         />
                         <Text style={styles.statusText}>
                           Mic {!isMuted ? "On" : "Off"}
                         </Text>
                       </View>
-                      <View style={[styles.statusPill, { borderColor: COLORS.creamDim }]}>
-                        <View
-                          style={[
-                            styles.statusDot,
-                            { backgroundColor: !isCameraOff ? "#34d399" : COLORS.primaryOrange },
-                          ]}
+                      <View style={[styles.statusPill, { borderColor: "rgba(254, 252, 217, 0.1)" }]}>
+                          <View
+                            style={[
+                              styles.statusDot,
+                              { backgroundColor: !isCameraOff ? "#34d399" : COLORS.primaryOrange },
+                            ]}
                         />
                         <Text style={styles.statusText}>
                           Camera {!isCameraOff ? "On" : "Off"}
@@ -1112,13 +1115,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  previewGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
   userAvatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(249, 95, 74, 0.15)",
+    position: "relative",
+  },
+  userAvatarBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 32,
     borderWidth: 1,
+    borderColor: "rgba(254, 252, 217, 0.2)",
   },
   userInitial: {
     fontSize: 24,
