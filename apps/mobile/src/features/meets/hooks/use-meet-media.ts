@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PermissionsAndroid, Platform } from "react-native";
+import { PermissionsAndroid, Platform, type Permission } from "react-native";
 import type { Socket } from "socket.io-client";
 import { mediaDevices } from "react-native-webrtc";
 import {
@@ -123,6 +123,40 @@ export function useMeetMedia({
         );
       }
       throw new Error("getUserMedia is not available");
+    },
+    []
+  );
+  const requestAndroidPermissions = useCallback(
+    async (options: { audio?: boolean; video?: boolean }) => {
+      if (Platform.OS !== "android") {
+        return {
+          audio: options.audio ? true : false,
+          video: options.video ? true : false,
+        };
+      }
+
+      const permissions: Permission[] = [];
+      if (options.audio) {
+        permissions.push(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+      }
+      if (options.video) {
+        permissions.push(PermissionsAndroid.PERMISSIONS.CAMERA);
+      }
+      if (!permissions.length) {
+        return { audio: false, video: false };
+      }
+
+      const results = await PermissionsAndroid.requestMultiple(permissions);
+      return {
+        audio: options.audio
+          ? results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] ===
+            PermissionsAndroid.RESULTS.GRANTED
+          : false,
+        video: options.video
+          ? results[PermissionsAndroid.PERMISSIONS.CAMERA] ===
+            PermissionsAndroid.RESULTS.GRANTED
+          : false,
+      };
     },
     []
   );
@@ -283,6 +317,41 @@ export function useMeetMedia({
     }, 450);
 
     try {
+      const needsVideo = !isCameraOff;
+      const permissionState = await requestAndroidPermissions({
+        audio: true,
+        video: needsVideo,
+      });
+      const audioAllowed = permissionState.audio;
+      const videoAllowed = needsVideo ? permissionState.video : false;
+
+      if (!audioAllowed) {
+        setIsMuted(true);
+      }
+      if (needsVideo && !videoAllowed) {
+        setIsCameraOff(true);
+      }
+
+      if (!audioAllowed && !videoAllowed) {
+        setMeetError({
+          code: "PERMISSION_DENIED",
+          message: needsVideo
+            ? "Camera/microphone permission denied"
+            : "Microphone permission denied",
+          recoverable: true,
+        });
+        return null;
+      }
+      if (!audioAllowed || (needsVideo && !videoAllowed)) {
+        setMeetError({
+          code: "PERMISSION_DENIED",
+          message: !audioAllowed
+            ? "Microphone permission denied"
+            : "Camera permission denied",
+          recoverable: true,
+        });
+      }
+
       const videoConstraints =
         videoQuality === "low"
           ? { ...LOW_QUALITY_CONSTRAINTS }
@@ -293,8 +362,8 @@ export function useMeetMedia({
       );
 
       const stream = await getUserMedia({
-        audio: audioConstraints,
-        video: isCameraOff ? false : videoConstraints,
+        audio: audioAllowed ? audioConstraints : false,
+        video: needsVideo && videoAllowed ? videoConstraints : false,
       });
 
       setMediaState({
@@ -330,6 +399,14 @@ export function useMeetMedia({
         meetErr.code === "MEDIA_ERROR"
       ) {
         try {
+          const permissionState = await requestAndroidPermissions({
+            audio: true,
+          });
+          if (!permissionState.audio) {
+            setIsMuted(true);
+            return null;
+          }
+
           const audioOnlyConstraints = buildAudioConstraints(
             selectedAudioInputDeviceId
           );
@@ -371,6 +448,7 @@ export function useMeetMedia({
     setMeetError,
     setIsCameraOff,
     setIsMuted,
+    requestAndroidPermissions,
   ]);
 
   const handleAudioInputDeviceChange = useCallback(
@@ -533,6 +611,19 @@ export function useMeetMedia({
       }
 
       try {
+        const permissionState = await requestAndroidPermissions({
+          audio: true,
+        });
+        if (!permissionState.audio) {
+          setIsMuted(true);
+          setMeetError({
+            code: "PERMISSION_DENIED",
+            message: "Microphone permission denied",
+            recoverable: true,
+          });
+          return;
+        }
+
         const stream = await getUserMedia({
           audio: buildAudioConstraints(selectedAudioInputDeviceId),
         });
@@ -615,6 +706,19 @@ export function useMeetMedia({
     try {
       if (!transport) return;
 
+      const permissionState = await requestAndroidPermissions({
+        audio: true,
+      });
+      if (!permissionState.audio) {
+        setIsMuted(true);
+        setMeetError({
+          code: "PERMISSION_DENIED",
+          message: "Microphone permission denied",
+          recoverable: true,
+        });
+        return;
+      }
+
       const stream = await getUserMedia({
         audio: buildAudioConstraints(selectedAudioInputDeviceId),
       });
@@ -687,6 +791,7 @@ export function useMeetMedia({
     setIsMuted,
     setMeetError,
     OPUS_MAX_AVERAGE_BITRATE,
+    requestAndroidPermissions,
   ]);
 
   const toggleCamera = useCallback(async () => {
@@ -698,6 +803,19 @@ export function useMeetMedia({
       if (isCameraOff) {
         try {
           setIsCameraOff(false);
+          const permissionState = await requestAndroidPermissions({
+            video: true,
+          });
+          if (!permissionState.video) {
+            setIsCameraOff(true);
+            setMeetError({
+              code: "PERMISSION_DENIED",
+              message: "Camera permission denied",
+              recoverable: true,
+            });
+            return;
+          }
+
           const stream = await getUserMedia({
             video:
               videoQualityRef.current === "low"
@@ -814,6 +932,19 @@ export function useMeetMedia({
         const transport = producerTransportRef.current;
         if (!transport) return;
 
+        const permissionState = await requestAndroidPermissions({
+          video: true,
+        });
+        if (!permissionState.video) {
+          setIsCameraOff(true);
+          setMeetError({
+            code: "PERMISSION_DENIED",
+            message: "Camera permission denied",
+            recoverable: true,
+          });
+          return;
+        }
+
         const stream = await getUserMedia({
           video:
             videoQualityRef.current === "low"
@@ -877,6 +1008,7 @@ export function useMeetMedia({
     setMeetError,
     LOW_VIDEO_MAX_BITRATE,
     STANDARD_VIDEO_MAX_BITRATE,
+    requestAndroidPermissions,
   ]);
 
   const toggleScreenShare = useCallback(async () => {
