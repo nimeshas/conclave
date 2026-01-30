@@ -418,11 +418,7 @@ export function JoinScreen({
               contentInsetAdjustmentBehavior="never"
             >
               <Animated.View entering={FadeIn.duration(600)} style={styles.centerItems}>
-                <Text
-                  numberOfLines={1}
-                  ellipsizeMode="clip"
-                  style={[styles.welcomeLabel, { color: COLORS.creamLight }]}
-                >
+                <Text style={[styles.welcomeLabel, { color: COLORS.creamLight }]}>
                   welcome to
                 </Text>
 
@@ -1319,6 +1315,7 @@ const styles = StyleSheet.create({
     lineHeight: textLineHeight(18, 1.2),
     marginBottom: 8,
     fontWeight: "500",
+    textAlign: "center",
     fontFamily: "PolySans-BulkyWide",
   },
   brandingRow: {
