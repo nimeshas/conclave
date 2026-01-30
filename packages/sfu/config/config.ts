@@ -37,6 +37,7 @@ type ClientPolicy = {
   allowNonHostRoomCreation: boolean;
   allowHostJoin: boolean;
   useWaitingRoom: boolean;
+  allowDisplayNameUpdate: boolean;
 };
 
 const defaultClientPolicies: Record<string, ClientPolicy> = {
@@ -44,16 +45,19 @@ const defaultClientPolicies: Record<string, ClientPolicy> = {
     allowNonHostRoomCreation: false,
     allowHostJoin: true,
     useWaitingRoom: true,
+    allowDisplayNameUpdate: false,
   },
   public: {
     allowNonHostRoomCreation: false,
     allowHostJoin: false,
     useWaitingRoom: false,
+    allowDisplayNameUpdate: true,
   },
   internal: {
     allowNonHostRoomCreation: false,
     allowHostJoin: true,
     useWaitingRoom: true,
+    allowDisplayNameUpdate: false,
   },
 };
 

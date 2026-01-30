@@ -21,7 +21,7 @@ interface UseMeetDisplayNameOptions {
 export function useMeetDisplayName({
   user,
   userId,
-  isAdmin,
+  isAdmin: _isAdmin,
   ghostEnabled,
   socketRef,
   joinOptionsRef,
@@ -76,10 +76,10 @@ export function useMeetDisplayName({
   useEffect(() => {
     const normalized = normalizeDisplayName(displayNameInput);
     joinOptionsRef.current = {
-      displayName: isAdmin ? normalized || undefined : undefined,
+      displayName: normalized || undefined,
       isGhost: ghostEnabled,
     };
-  }, [displayNameInput, ghostEnabled, isAdmin, joinOptionsRef]);
+  }, [displayNameInput, ghostEnabled, joinOptionsRef]);
 
   useEffect(() => {
     if (!displayNameStatus) return;
@@ -88,7 +88,7 @@ export function useMeetDisplayName({
   }, [displayNameStatus]);
 
   const handleDisplayNameSubmit = useCallback(() => {
-    if (!isAdmin || !canUpdateDisplayName) return;
+    if (!canUpdateDisplayName) return;
     const socket = socketRef.current;
     if (!socket) return;
 
@@ -117,7 +117,7 @@ export function useMeetDisplayName({
         });
       }
     );
-  }, [isAdmin, canUpdateDisplayName, displayNameInput, socketRef]);
+  }, [canUpdateDisplayName, displayNameInput, socketRef]);
 
   return {
     displayNames,

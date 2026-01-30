@@ -11,6 +11,10 @@ interface ParticipantsPanelProps {
   currentUserId: string;
   resolveDisplayName: (userId: string) => string;
   onClose: () => void;
+  pendingUsers?: Map<string, string>;
+  isAdmin?: boolean;
+  onAdmitPendingUser?: (userId: string) => void;
+  onRejectPendingUser?: (userId: string) => void;
   visible?: boolean;
 }
 
@@ -20,6 +24,10 @@ export function ParticipantsPanel({
   currentUserId,
   resolveDisplayName,
   onClose,
+  pendingUsers,
+  isAdmin = false,
+  onAdmitPendingUser,
+  onRejectPendingUser,
   visible = true,
 }: ParticipantsPanelProps) {
   const sheetRef = useRef<TrueSheet>(null);
@@ -57,6 +65,11 @@ export function ParticipantsPanel({
     return ordered;
   }, [participants, localParticipant]);
 
+  const pendingList = useMemo(() => {
+    if (!pendingUsers || pendingUsers.size === 0) return [];
+    return Array.from(pendingUsers.entries());
+  }, [pendingUsers]);
+
   useEffect(() => {
     if (visible) {
       hasPresented.current = true;
@@ -91,6 +104,51 @@ export function ParticipantsPanel({
             <Text style={styles.closeText}>Done</Text>
           </Pressable>
         </View>
+
+        {isAdmin && pendingList.length > 0 ? (
+          <View style={styles.pendingSection}>
+            <View style={styles.pendingHeader}>
+              <Text style={styles.pendingTitle}>
+                Waiting ({pendingList.length})
+              </Text>
+            </View>
+            <View style={styles.pendingList}>
+              {pendingList.map(([userId, displayName]) => (
+                <View key={userId} style={styles.pendingRow}>
+                  <Text style={styles.pendingName} numberOfLines={1}>
+                    {displayName || userId}
+                  </Text>
+                  <View style={styles.pendingActions}>
+                    <Pressable
+                      onPress={() => onRejectPendingUser?.(userId)}
+                      style={({ pressed }) => [
+                        styles.pendingIconButton,
+                        styles.pendingReject,
+                        pressed && styles.pendingButtonPressed,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Reject"
+                    >
+                      <Text style={styles.pendingRejectIcon}>✕</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => onAdmitPendingUser?.(userId)}
+                      style={({ pressed }) => [
+                        styles.pendingIconButton,
+                        styles.pendingAdmit,
+                        pressed && styles.pendingButtonPressed,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Admit"
+                    >
+                      <Text style={styles.pendingAdmitIcon}>✓</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         <FlatList
           data={data}
@@ -158,6 +216,74 @@ const styles = StyleSheet.create({
   listContent: {
     gap: 12,
     paddingBottom: 12,
+  },
+  pendingSection: {
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 12,
+    backgroundColor: "rgba(254, 252, 217, 0.04)",
+    borderWidth: 1,
+    borderColor: SHEET_COLORS.border,
+  },
+  pendingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  pendingTitle: {
+    fontSize: 12,
+    color: "rgba(249, 95, 74, 0.85)",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  pendingList: {
+    gap: 8,
+  },
+  pendingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  pendingName: {
+    flex: 1,
+    fontSize: 13,
+    color: SHEET_COLORS.text,
+  },
+  pendingActions: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  pendingIconButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingReject: {
+    borderColor: "rgba(239, 68, 68, 0.5)",
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+  },
+  pendingAdmit: {
+    borderColor: "rgba(249, 95, 74, 0.6)",
+    backgroundColor: "rgba(249, 95, 74, 0.85)",
+  },
+  pendingRejectIcon: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "rgba(248, 113, 113, 0.95)",
+  },
+  pendingAdmitIcon: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#16a34a",
+  },
+  pendingButtonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
   },
   row: {
     paddingHorizontal: 12,

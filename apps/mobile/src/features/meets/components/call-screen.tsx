@@ -166,6 +166,7 @@ export function CallScreen({
     () => getGridColumns(participantList.length, layout),
     [participantList.length, layout]
   );
+  const isTwoUp = layout === "compact" && participantList.length === 2;
 
   const safePaddingLeft = Math.max(isTablet ? 12 : 6, insets.left);
   const safePaddingRight = Math.max(isTablet ? 12 : 6, insets.right);
@@ -175,9 +176,11 @@ export function CallScreen({
   const tileStyle = useMemo(
     () => ({
       width: tileWidth,
-      height: Math.round(tileWidth * (isTablet ? 10 / 16 : 9 / 16))
+      height: Math.round(
+        tileWidth * (isTwoUp ? 12 / 16 : isTablet ? 10 / 16 : 9 / 16)
+      ),
     }),
-    [tileWidth, isTablet]
+    [tileWidth, isTablet, isTwoUp]
   );
 
   // Strip tile size for presentation mode - larger on iPad
@@ -344,6 +347,7 @@ export function CallScreen({
             contentContainerStyle={[
               styles.gridContent,
               { paddingBottom: 140 + insets.bottom },
+              isTwoUp && styles.gridContentTwoUp,
             ]}
             columnWrapperStyle={columns > 1 ? (isTablet ? columnWrapperStyleTablet : columnWrapperStyle) : undefined}
             renderItem={({ item }) => (
@@ -488,6 +492,11 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 140,
     gap: 12,
+  },
+  gridContentTwoUp: {
+    flexGrow: 1,
+    justifyContent: "space-between",
+    paddingTop: 16,
   },
   presentationContainer: {
     flex: 1,

@@ -3,19 +3,19 @@ import { StyleSheet, View as RNView } from "react-native";
 import * as Haptics from "expo-haptics";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { Pressable, View } from "@/tw";
-import { Hand, ScreenShare } from "lucide-react-native";
+import { ClipboardPenLine, Hand, Lock, LockOpen, ScreenShare } from "lucide-react-native";
 import { SHEET_COLORS, SHEET_THEME } from "./true-sheet-theme";
-
-const COLORS = {
-  dark: "#0b0b0b",
-} as const;
 
 interface SettingsSheetProps {
   visible: boolean;
   isScreenSharing: boolean;
   isHandRaised: boolean;
+  isRoomLocked: boolean;
+  isAdmin?: boolean;
+  onOpenDisplayName?: () => void;
   onToggleScreenShare: () => void;
   onToggleHandRaised: () => void;
+  onToggleRoomLock?: (locked: boolean) => void;
   onClose: () => void;
 }
 
@@ -23,8 +23,12 @@ export function SettingsSheet({
   visible,
   isScreenSharing,
   isHandRaised,
+  isRoomLocked,
+  isAdmin = false,
+  onOpenDisplayName,
   onToggleScreenShare,
   onToggleHandRaised,
+  onToggleRoomLock,
   onClose,
 }: SettingsSheetProps) {
   const sheetRef = useRef<TrueSheet>(null);
@@ -87,7 +91,8 @@ export function SettingsSheet({
           >
             <ScreenShare
               size={28}
-              color={isScreenSharing ? COLORS.dark : SHEET_COLORS.text}
+              color={SHEET_COLORS.text}
+              fill={isScreenSharing ? "rgba(254, 252, 217, 0.35)" : "transparent"}
               strokeWidth={1.5}
             />
           </Pressable>
@@ -105,10 +110,57 @@ export function SettingsSheet({
           >
             <Hand
               size={28}
-              color={isHandRaised ? COLORS.dark : SHEET_COLORS.text}
+              color={SHEET_COLORS.text}
+              fill={isHandRaised ? "rgba(0, 0, 0, 0.35)" : "transparent"}
               strokeWidth={1.5}
             />
           </Pressable>
+
+          <Pressable
+            onPress={() => {
+              if (!onOpenDisplayName) return;
+              trigger(onOpenDisplayName);
+            }}
+            style={({ pressed }) => [
+              styles.gridItem,
+              pressed && styles.gridItemPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Change display name"
+          >
+            <ClipboardPenLine size={28} color={SHEET_COLORS.text} strokeWidth={1.5} />
+          </Pressable>
+
+          {isAdmin ? (
+            <Pressable
+              onPress={() => {
+                if (!onToggleRoomLock) return;
+                trigger(() => onToggleRoomLock(!isRoomLocked));
+              }}
+              style={({ pressed }) => [
+                styles.gridItem,
+                isRoomLocked && styles.gridItemLockActive,
+                pressed && styles.gridItemPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={isRoomLocked ? "Unlock room" : "Lock room"}
+              accessibilityState={{ selected: isRoomLocked }}
+            >
+              {isRoomLocked ? (
+                <Lock
+                  size={28}
+                  color={SHEET_COLORS.text}
+                  strokeWidth={1.5}
+                />
+              ) : (
+                <LockOpen
+                  size={28}
+                  color={SHEET_COLORS.text}
+                  strokeWidth={1.5}
+                />
+              )}
+            </Pressable>
+          ) : null}
         </RNView>
       </View>
     </TrueSheet>
@@ -136,6 +188,7 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: "center",
     alignSelf: "center",
+    flexWrap: "wrap",
   },
   gridItem: {
     width: 80,
@@ -161,6 +214,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(251, 191, 36, 0.65)",
     borderColor: "rgba(251, 191, 36, 0.9)",
     shadowColor: "rgba(251, 191, 36, 0.55)",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  gridItemLockActive: {
+    backgroundColor: "rgba(76, 168, 255, 0.55)",
+    borderColor: "rgba(76, 168, 255, 0.85)",
+    shadowColor: "rgba(76, 168, 255, 0.55)",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.6,
     shadowRadius: 12,

@@ -12,20 +12,16 @@ import {
 } from "react-native";
 import { ScreenCapturePickerView } from "react-native-webrtc";
 import {
-  ensureCallNotificationPermissionIOS,
   ensureCallKeep,
   endCallSession,
   registerCallKeepHandlers,
   setAudioRoute,
   setCallMuted,
   startCallSession,
-  startCallNotificationIOS,
   startForegroundCallService,
   startInCall,
-  stopCallNotificationIOS,
   stopForegroundCallService,
   stopInCall,
-  updateCallNotificationIOS,
   updateForegroundCallService,
   registerForegroundCallServiceHandlers,
 } from "@/lib/call-service";
@@ -43,14 +39,17 @@ import { useMeetReactions } from "../hooks/use-meet-reactions";
 import { useMeetRefs } from "../hooks/use-meet-refs";
 import { useMeetSocket } from "../hooks/use-meet-socket";
 import { useMeetState } from "../hooks/use-meet-state";
+import { useMeetTts } from "../hooks/use-meet-tts";
 import { useDeviceLayout } from "../hooks/use-device-layout";
 import type { Participant } from "../types";
 import { createMeetError } from "../utils";
 import { getCachedUser, hydrateCachedUser, setCachedUser } from "../auth-session";
 import { CallScreen } from "./call-screen";
 import { ChatPanel } from "./chat-panel";
+import { DisplayNameSheet } from "./display-name-sheet";
 import { ErrorSheet } from "./error-sheet";
 import { JoinScreen } from "./join-screen";
+import { PendingJoinToast } from "./pending-join-toast";
 import { ParticipantsPanel } from "./participants-panel";
 import { ReactionOverlay } from "./reaction-overlay";
 import { ReactionSheet } from "./reaction-sheet";
@@ -187,6 +186,15 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
   const user = currentUser ?? guestIdentity;
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasActiveCall, setHasActiveCall] = useState(false);
+  const [isDisplayNameSheetOpen, setIsDisplayNameSheetOpen] = useState(false);
+  const [isScreenSharePending, setIsScreenSharePending] = useState(false);
+  const [pendingToast, setPendingToast] = useState<{
+    userId: string;
+    displayName: string;
+    count: number;
+  } | null>(null);
+  const pendingToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingToastSeenRef = useRef<Set<string>>(new Set());
 
   const userKey = user?.email || user?.id || `guest-${guestSessionId}`;
   const userId = `${userKey}#${refs.sessionIdRef.current}`;
@@ -195,6 +203,10 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
     setDisplayNames,
     displayNameInput,
     setDisplayNameInput,
+    displayNameStatus,
+    isDisplayNameUpdating,
+    handleDisplayNameSubmit,
+    canUpdateDisplayName,
     resolveDisplayName,
   } = useMeetDisplayName({
     user,
@@ -225,6 +237,8 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
     ghostEnabled: isGhostMode,
     reactionAssets: reactionAssetList.slice(),
   });
+
+  const { ttsSpeakerId, handleTtsMessage } = useMeetTts();
 
   const {
     mediaState,
@@ -275,6 +289,7 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
   });
 
   const isJoined = connectionState === "joined";
+  const effectiveActiveSpeakerId = ttsSpeakerId ?? activeSpeakerId;
   const isLoading =
     connectionState === "connecting" ||
     connectionState === "joining" ||
@@ -294,13 +309,6 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
       setHasActiveCall(true);
     }
   }, [isJoined]);
-
-  useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    if (!hasActiveCall) {
-      void stopCallNotificationIOS();
-    }
-  }, [hasActiveCall]);
 
   useEffect(() => {
     isCameraOffRef.current = isCameraOff;
@@ -339,12 +347,6 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
         } else if (Platform.OS === "ios") {
           stopAudioKeepAlive();
         }
-        if (Platform.OS === "ios" && state === "background") {
-          void startCallNotificationIOS({
-            roomId: roomIdRef.current || roomId,
-            isMuted: isMutedRef.current,
-          });
-        }
         return;
       }
 
@@ -354,7 +356,6 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
 
       if (Platform.OS === "ios") {
         stopAudioKeepAlive();
-        void stopCallNotificationIOS();
       }
       if (wasCameraOnBeforeBackgroundRef.current && isCameraOff) {
         void toggleCamera();
@@ -421,6 +422,7 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
     onToggleMute: toggleMute,
     onToggleCamera: toggleCamera,
     onSetHandRaised: setHandRaisedState,
+    onTtsMessage: handleTtsMessage,
   });
 
   const socket = useMeetSocket({
@@ -488,6 +490,7 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
     primeAudioOutput,
     addReaction,
     clearReactions,
+    onTtsMessage: handleTtsMessage,
     chat: {
       setChatMessages,
       setChatOverlayMessages,
@@ -496,6 +499,68 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
     },
     isAppActiveRef,
   });
+
+  const dismissPendingToast = useCallback(() => {
+    if (pendingToastTimerRef.current) {
+      clearTimeout(pendingToastTimerRef.current);
+      pendingToastTimerRef.current = null;
+    }
+    setPendingToast(null);
+  }, []);
+
+  const showPendingToast = useCallback(
+    (userId: string, displayName: string, count: number) => {
+      if (pendingToastTimerRef.current) {
+        clearTimeout(pendingToastTimerRef.current);
+      }
+      setPendingToast({ userId, displayName, count });
+      pendingToastTimerRef.current = setTimeout(() => {
+        setPendingToast(null);
+        pendingToastTimerRef.current = null;
+      }, 6000);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!isAdmin || !isJoined) {
+      pendingToastSeenRef.current = new Set();
+      dismissPendingToast();
+      return;
+    }
+
+    const currentIds = new Set(pendingUsers.keys());
+    const previousIds = pendingToastSeenRef.current;
+    const newIds = Array.from(currentIds).filter((id) => !previousIds.has(id));
+    pendingToastSeenRef.current = currentIds;
+
+    if (newIds.length > 0) {
+      const latestId = newIds[newIds.length - 1];
+      const displayName = pendingUsers.get(latestId) || latestId;
+      showPendingToast(latestId, displayName, currentIds.size);
+    } else if (currentIds.size === 0) {
+      dismissPendingToast();
+    } else if (pendingToast && pendingToast.count !== currentIds.size) {
+      setPendingToast((prev) =>
+        prev ? { ...prev, count: currentIds.size } : prev
+      );
+    }
+  }, [
+    isAdmin,
+    isJoined,
+    pendingUsers,
+    pendingToast,
+    dismissPendingToast,
+    showPendingToast,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingToastTimerRef.current) {
+        clearTimeout(pendingToastTimerRef.current);
+      }
+    };
+  }, []);
 
   useMeetAudioActivity({
     participants,
@@ -543,11 +608,23 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
   const handleLeave = useCallback(() => {
     setHasActiveCall(false);
     playNotificationSoundRef.current("leave");
+    setIsScreenSharePending(false);
     stopScreenShareRef.current({ notify: true });
     socketCleanupRef.current();
     if (callIdRef.current) endCallSession(callIdRef.current);
     stopInCall();
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    if (hasActiveCall) return;
+    if (isScreenSharePending) {
+      setIsScreenSharePending(false);
+    }
+    if (isScreenSharing) {
+      stopScreenShare({ notify: false });
+    }
+  }, [hasActiveCall, isScreenSharing, isScreenSharePending, stopScreenShare]);
 
   useEffect(() => {
     if (process.env.EXPO_OS === "web") return;
@@ -612,16 +689,6 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
   useEffect(() => {
     if (Platform.OS !== "ios") return;
     if (!hasActiveCall) return;
-    if (isAppActiveRef.current) return;
-    void updateCallNotificationIOS({
-      roomId: roomIdRef.current || roomId,
-      isMuted,
-    });
-  }, [hasActiveCall, roomId, isMuted]);
-
-  useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    if (!hasActiveCall) return;
     setCallMuted(isMuted);
   }, [hasActiveCall, isMuted]);
 
@@ -653,9 +720,6 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
           createMeetError("Missing EXPO_PUBLIC_SFU_BASE_URL for mobile")
         );
         return;
-      }
-      if (Platform.OS === "ios") {
-        await ensureCallNotificationPermissionIOS();
       }
       setIsAdmin(!!options?.isHost);
       socket.joinRoomById(value.trim(), options);
@@ -700,8 +764,6 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
       NativeModules.ScreenCapturePickerViewManager;
     pickerModule?.show?.(nodeHandle);
   }, []);
-
-  const [isScreenSharePending, setIsScreenSharePending] = useState(false);
 
   const handleToggleScreenShare = useCallback(() => {
     if (Platform.OS !== "ios") {
@@ -894,7 +956,7 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
           isChatOpen={isChatOpen}
           unreadCount={unreadCount}
           isMirrorCamera={isMirrorCamera}
-          activeSpeakerId={activeSpeakerId}
+          activeSpeakerId={effectiveActiveSpeakerId}
           resolveDisplayName={resolveDisplayName}
           onToggleMute={toggleMute}
           onToggleCamera={toggleCamera}
@@ -966,6 +1028,24 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
           participants={Array.from(participants.values())}
           resolveDisplayName={resolveDisplayName}
           onClose={() => setIsParticipantsOpen(false)}
+          pendingUsers={pendingUsers}
+          isAdmin={isAdmin}
+          onAdmitPendingUser={(pendingUserId) => {
+            socket.admitUser?.(pendingUserId);
+            setPendingUsers((prev) => {
+              const next = new Map(prev);
+              next.delete(pendingUserId);
+              return next;
+            });
+          }}
+          onRejectPendingUser={(pendingUserId) => {
+            socket.rejectUser?.(pendingUserId);
+            setPendingUsers((prev) => {
+              const next = new Map(prev);
+              next.delete(pendingUserId);
+              return next;
+            });
+          }}
         />
       ) : null}
 
@@ -986,6 +1066,12 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
           visible={isSettingsSheetOpen}
           isScreenSharing={isScreenSharing}
           isHandRaised={isHandRaised}
+          isRoomLocked={isRoomLocked}
+          isAdmin={isAdmin}
+          onOpenDisplayName={() => {
+            setIsSettingsSheetOpen(false);
+            setIsDisplayNameSheetOpen(true);
+          }}
           onToggleScreenShare={() => {
             setIsSettingsSheetOpen(false);
             handleToggleScreenShare();
@@ -994,7 +1080,50 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
             setIsSettingsSheetOpen(false);
             toggleHandRaised();
           }}
+          onToggleRoomLock={(locked) => {
+            setIsSettingsSheetOpen(false);
+            socket.toggleRoomLock?.(locked);
+          }}
           onClose={() => setIsSettingsSheetOpen(false)}
+        />
+      ) : null}
+
+      {isJoined ? (
+        <DisplayNameSheet
+          visible={isDisplayNameSheetOpen}
+          value={displayNameInput}
+          onChange={setDisplayNameInput}
+          onSubmit={handleDisplayNameSubmit}
+          onClose={() => setIsDisplayNameSheetOpen(false)}
+          canSubmit={canUpdateDisplayName}
+          isUpdating={isDisplayNameUpdating}
+          status={displayNameStatus}
+        />
+      ) : null}
+
+      {isJoined && isAdmin && pendingToast ? (
+        <PendingJoinToast
+          visible
+          displayName={pendingToast.displayName}
+          count={pendingToast.count}
+          onAdmit={() => {
+            socket.admitUser?.(pendingToast.userId);
+            setPendingUsers((prev) => {
+              const next = new Map(prev);
+              next.delete(pendingToast.userId);
+              return next;
+            });
+            dismissPendingToast();
+          }}
+          onReject={() => {
+            socket.rejectUser?.(pendingToast.userId);
+            setPendingUsers((prev) => {
+              const next = new Map(prev);
+              next.delete(pendingToast.userId);
+              return next;
+            });
+            dismissPendingToast();
+          }}
         />
       ) : null}
 

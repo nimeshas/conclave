@@ -1947,6 +1947,52 @@ export function useMeetSocket({
     [socketRef]
   );
 
+  const admitUser = useCallback(
+    (targetUserId: string): Promise<boolean> => {
+      const socket = socketRef.current;
+      if (!socket) return Promise.resolve(false);
+
+      return new Promise((resolve) => {
+        socket.emit(
+          "admitUser",
+          { userId: targetUserId },
+          (response: { success?: boolean; error?: string }) => {
+            if (response?.error) {
+              console.error("[Meets] Failed to admit user:", response.error);
+              resolve(false);
+            } else {
+              resolve(Boolean(response?.success ?? true));
+            }
+          }
+        );
+      });
+    },
+    [socketRef]
+  );
+
+  const rejectUser = useCallback(
+    (targetUserId: string): Promise<boolean> => {
+      const socket = socketRef.current;
+      if (!socket) return Promise.resolve(false);
+
+      return new Promise((resolve) => {
+        socket.emit(
+          "rejectUser",
+          { userId: targetUserId },
+          (response: { success?: boolean; error?: string }) => {
+            if (response?.error) {
+              console.error("[Meets] Failed to reject user:", response.error);
+              resolve(false);
+            } else {
+              resolve(Boolean(response?.success ?? true));
+            }
+          }
+        );
+      });
+    },
+    [socketRef]
+  );
+
   return {
     cleanup,
     cleanupRoomResources,
@@ -1954,5 +2000,7 @@ export function useMeetSocket({
     joinRoom,
     joinRoomById,
     toggleRoomLock,
+    admitUser,
+    rejectUser,
   };
 }

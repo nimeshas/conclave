@@ -1,4 +1,5 @@
 import { Admin } from "../../../config/classes/Admin.js";
+import { config } from "../../../config/config.js";
 import { MAX_DISPLAY_NAME_LENGTH } from "../../constants.js";
 import { normalizeDisplayName } from "../../identity.js";
 import type { ConnectionContext } from "../context.js";
@@ -25,8 +26,17 @@ export const registerDisplayNameHandlers = (
           return;
         }
 
-        if (!(context.currentClient instanceof Admin)) {
-          respond(callback, { error: "Only admins can update display name" });
+        const user = (socket as any).user;
+        const clientId =
+          typeof user?.clientId === "string" ? user.clientId : "default";
+        const clientPolicy =
+          config.clientPolicies[clientId] ?? config.clientPolicies.default;
+        const canUpdateDisplayName =
+          clientPolicy.allowDisplayNameUpdate ||
+          context.currentClient instanceof Admin;
+
+        if (!canUpdateDisplayName) {
+          respond(callback, { error: "Display name updates are disabled" });
           return;
         }
 

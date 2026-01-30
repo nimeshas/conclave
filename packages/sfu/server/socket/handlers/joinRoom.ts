@@ -103,7 +103,11 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
           Logger.info(`Host returning to room ${roomId}, cleanup cancelled.`);
           room.stopCleanupTimer();
         }
-        const requestedDisplayName = isHost ? displayNameCandidate : "";
+        const canSetDisplayName = Boolean(
+          clientPolicy.allowDisplayNameUpdate || isHost,
+        );
+        const requestedDisplayName =
+          canSetDisplayName && displayNameCandidate ? displayNameCandidate : "";
         const displayName = requestedDisplayName || identity.displayName;
         const hasDisplayNameOverride = Boolean(requestedDisplayName);
         const isGhost = Boolean(data?.ghost) && Boolean(isHost);
