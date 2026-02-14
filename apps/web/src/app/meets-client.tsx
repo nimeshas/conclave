@@ -26,6 +26,7 @@ import { useMeetLifecycle } from "./hooks/useMeetLifecycle";
 import { useMeetMedia } from "./hooks/useMeetMedia";
 import { useMeetMediaSettings } from "./hooks/useMeetMediaSettings";
 import { useMeetPictureInPicture } from "./hooks/useMeetPictureInPicture";
+import { useMeetPopout } from "./hooks/useMeetPopout";
 import { useMeetReactions } from "./hooks/useMeetReactions";
 import { useMeetRefs } from "./hooks/useMeetRefs";
 import { useMeetRooms } from "./hooks/useMeetRooms";
@@ -559,6 +560,27 @@ export default function MeetsClient({
     getDisplayName: resolveDisplayName,
   });
 
+  // Document PiP popout for mini meeting view
+  const {
+    isPopoutActive,
+    isPopoutSupported,
+    openPopout,
+    closePopout,
+  } = useMeetPopout({
+    isJoined: connectionState === "joined",
+    localStream,
+    participants,
+    activeSpeakerId: effectiveActiveSpeakerId,
+    currentUserId: userId,
+    isCameraOff,
+    isMuted,
+    userEmail,
+    getDisplayName: resolveDisplayName,
+    onToggleMute: toggleMute,
+    onToggleCamera: toggleCamera,
+    onLeave: leaveRoom,
+  });
+
   // ============================================
   // Render Helpers
   // ============================================
@@ -830,6 +852,10 @@ export default function MeetsClient({
         onDismissMeetError={() => setMeetError(null)}
         onRetryMedia={handleRetryMedia}
         onTestSpeaker={handleTestSpeaker}
+        isPopoutActive={isPopoutActive}
+        isPopoutSupported={isPopoutSupported}
+        onOpenPopout={openPopout}
+        onClosePopout={closePopout}
       />
     </div>
   );

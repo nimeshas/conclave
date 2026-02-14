@@ -11,6 +11,7 @@ import {
   Mic,
   MicOff,
   Monitor,
+  PictureInPicture2,
   Phone,
   PlaySquare,
   Presentation,
@@ -66,6 +67,10 @@ interface ControlsBarProps {
   onCloseWhiteboard?: () => void;
   isAppsLocked?: boolean;
   onToggleAppsLock?: () => void;
+  isPopoutActive?: boolean;
+  isPopoutSupported?: boolean;
+  onOpenPopout?: () => void;
+  onClosePopout?: () => void;
 }
 
 const BROWSER_APPS = [
@@ -170,6 +175,10 @@ function ControlsBar({
   onCloseWhiteboard,
   isAppsLocked = false,
   onToggleAppsLock,
+  isPopoutActive = false,
+  isPopoutSupported = false,
+  onOpenPopout,
+  onClosePopout,
 }: ControlsBarProps) {
   const canStartScreenShare = !activeScreenShareId || isScreenSharing;
   const [isReactionMenuOpen, setIsReactionMenuOpen] = useState(false);
@@ -646,6 +655,17 @@ function ControlsBar({
           </span>
         )}
       </button>
+
+      {isPopoutSupported && (onOpenPopout || onClosePopout) && (
+        <button
+          onClick={isPopoutActive ? onClosePopout : onOpenPopout}
+          className={isPopoutActive ? activeButtonClass : defaultButtonClass}
+          title={isPopoutActive ? "Close mini view" : "Pop out mini view"}
+          aria-label={isPopoutActive ? "Close mini view" : "Pop out mini view"}
+        >
+          <PictureInPicture2 className="w-4 h-4" />
+        </button>
+      )}
 
       <div className="w-px h-6 bg-[#FEFCD9]/10 mx-1" />
 

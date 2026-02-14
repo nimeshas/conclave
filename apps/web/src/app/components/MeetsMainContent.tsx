@@ -114,6 +114,10 @@ interface MeetsMainContentProps {
   onBrowserAudioAutoplayBlocked: () => void;
   onRetryMedia?: () => void;
   onTestSpeaker?: () => void;
+  isPopoutActive?: boolean;
+  isPopoutSupported?: boolean;
+  onOpenPopout?: () => void;
+  onClosePopout?: () => void;
 }
 
 export default function MeetsMainContent({
@@ -195,6 +199,10 @@ export default function MeetsMainContent({
   onDismissMeetError,
   onRetryMedia,
   onTestSpeaker,
+  isPopoutActive,
+  isPopoutSupported,
+  onOpenPopout,
+  onClosePopout,
 }: MeetsMainContentProps) {
   const { state: appsState, openApp, closeApp, setLocked, refreshState } = useApps();
   const isWhiteboardActive = appsState.activeAppId === "whiteboard";
@@ -451,6 +459,10 @@ export default function MeetsMainContent({
               onCloseWhiteboard={handleCloseWhiteboard}
               isAppsLocked={appsState.locked}
               onToggleAppsLock={isAdmin ? handleToggleAppsLock : undefined}
+              isPopoutActive={isPopoutActive}
+              isPopoutSupported={isPopoutSupported}
+              onOpenPopout={onOpenPopout}
+              onClosePopout={onClosePopout}
             />
           </div>
           <div className="flex items-center gap-4">
