@@ -4,10 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Participant } from "../lib/types";
 import { isSystemUserId } from "../lib/utils";
 
-// ─── Types ────────────────────────────────────────────────────────
 
 interface DocumentPictureInPictureWindow extends Window {
-  // The Document PiP API exposes a standard Window
 }
 
 interface DocumentPictureInPicture extends EventTarget {
@@ -47,10 +45,6 @@ export interface PopoutState {
   closePopout: () => void;
 }
 
-// ─── Inline CSS for the popout window ─────────────────────────────
-// Matches Conclave design system: PolySans fonts, #0d0e0d bg,
-// #FEFCD9 text, #F95F4A accent, rounded-full pill controls,
-// 16px radius video tiles with gradient avatars.
 
 const POPOUT_CSS = `
   @font-face {
@@ -298,7 +292,6 @@ const POPOUT_CSS = `
   }
 `;
 
-// ─── SVG icons as strings ─────────────────────────────────────────
 
 const MIC_ON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`;
 const MIC_OFF_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5.87"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`;
@@ -307,7 +300,6 @@ const CAM_OFF_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const PHONE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
 const MIC_OFF_SMALL_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5.87"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`;
 
-// ─── Hook ─────────────────────────────────────────────────────────
 
 export function useMeetPopout({
   isJoined,
@@ -328,18 +320,16 @@ export function useMeetPopout({
   const updateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
 
-  // Store callbacks in refs so DOM event listeners always call the latest version
   const onToggleMuteRef = useRef(onToggleMute);
   const onToggleCameraRef = useRef(onToggleCamera);
   const onLeaveRef = useRef(onLeave);
+  const updatePopoutRef = useRef<(() => void) | null>(null);
   useEffect(() => { onToggleMuteRef.current = onToggleMute; }, [onToggleMute]);
   useEffect(() => { onToggleCameraRef.current = onToggleCamera; }, [onToggleCamera]);
   useEffect(() => { onLeaveRef.current = onLeave; }, [onLeave]);
 
   const isPopoutSupported =
     typeof window !== "undefined" && "documentPictureInPicture" in window;
-
-  // ── Build / update DOM inside the popout ──
 
   const getVisibleParticipants = useCallback(() => {
     const visible: Array<{
@@ -352,7 +342,6 @@ export function useMeetPopout({
       isActiveSpeaker: boolean;
     }> = [];
 
-    // Local user first
     visible.push({
       userId: currentUserId,
       displayName: "You",
@@ -363,7 +352,6 @@ export function useMeetPopout({
       isActiveSpeaker: activeSpeakerId === currentUserId,
     });
 
-    // Remote participants
     for (const [userId, participant] of participants) {
       if (userId === currentUserId || isSystemUserId(userId)) continue;
       visible.push({
@@ -399,8 +387,6 @@ export function useMeetPopout({
     const allParticipants = getVisibleParticipants();
     const totalCount = allParticipants.length;
 
-    // Determine which participants to show (max 4 tiles)
-    // Prioritize: active speaker, local, then others
     let showParticipants = allParticipants;
     if (totalCount > 4) {
       const activeSpeaker = allParticipants.find((p) => p.isActiveSpeaker && !p.isLocal);
@@ -409,11 +395,9 @@ export function useMeetPopout({
       showParticipants = [local, activeSpeaker, ...others].filter(Boolean).slice(0, 4) as typeof allParticipants;
     }
 
-    // Update count badge
     const countEl = doc.getElementById("p-count");
     if (countEl) countEl.textContent = `${totalCount} in call`;
 
-    // Update video grid
     const grid = doc.getElementById("p-videos");
     if (!grid) return;
 
@@ -427,7 +411,6 @@ export function useMeetPopout({
 
     const currentIds = new Set(showParticipants.map((p) => p.userId));
 
-    // Remove tiles no longer visible
     for (const child of Array.from(grid.children)) {
       const tileUserId = (child as HTMLElement).dataset.userId;
       if (tileUserId && !currentIds.has(tileUserId)) {
@@ -440,7 +423,6 @@ export function useMeetPopout({
       }
     }
 
-    // Add/update tiles
     for (const participant of showParticipants) {
       let tile = doc.querySelector(
         `[data-user-id="${participant.userId}"]`
@@ -463,10 +445,8 @@ export function useMeetPopout({
         grid.appendChild(tile);
       }
 
-      // Update speaking state
       tile.classList.toggle("speaking", participant.isActiveSpeaker);
 
-      // Update video/avatar
       const video = tile.querySelector("video") as HTMLVideoElement;
       const avatar = tile.querySelector(".avatar-placeholder") as HTMLElement;
       const avatarCircle = tile.querySelector(".avatar-circle") as HTMLElement;
@@ -495,12 +475,10 @@ export function useMeetPopout({
         }
       }
 
-      // Update label
       labelName.textContent = participant.displayName;
       labelMuted.style.display = participant.isMuted ? "flex" : "none";
     }
 
-    // Update control button states
     const muteBtn = doc.getElementById("btn-mute");
     const camBtn = doc.getElementById("btn-cam");
     if (muteBtn) {
@@ -513,7 +491,8 @@ export function useMeetPopout({
     }
   }, [getVisibleParticipants, isMuted, isCameraOff]);
 
-  // ── Open popout ──
+  useEffect(() => { updatePopoutRef.current = updatePopoutContent; }, [updatePopoutContent]);
+
 
   const openPopout = useCallback(async () => {
     if (!isPopoutSupported || !isJoined || isPopoutActive) return;
@@ -528,7 +507,6 @@ export function useMeetPopout({
       popoutWindowRef.current = pipWin;
       setIsPopoutActive(true);
 
-      // Copy PolySans font stylesheets from the main window
       for (const sheet of document.styleSheets) {
         try {
           if (sheet.href) {
@@ -537,7 +515,6 @@ export function useMeetPopout({
             link.href = sheet.href;
             pipWin.document.head.appendChild(link);
           } else if (sheet.cssRules) {
-            // Check if this stylesheet contains PolySans @font-face rules
             let hasRelevantFonts = false;
             for (const rule of sheet.cssRules) {
               if (rule instanceof CSSFontFaceRule && rule.cssText.includes("PolySans")) {
@@ -558,18 +535,15 @@ export function useMeetPopout({
             }
           }
         } catch {
-          // CORS / security — skip
         }
       }
 
-      // Inject popout styles
       const style = pipWin.document.createElement("style");
       style.textContent = POPOUT_CSS;
       pipWin.document.head.appendChild(style);
 
       pipWin.document.title = "Conclave — Mini Meet";
 
-      // Build DOM — no header bar, just the video grid + floating controls overlay
       pipWin.document.body.innerHTML = `
         <div class="popout-root">
           <div class="popout-badge">
@@ -586,7 +560,6 @@ export function useMeetPopout({
         </div>
       `;
 
-      // Wire up button handlers via refs — always calls the latest callback
       pipWin.document.getElementById("btn-mute")?.addEventListener("click", () => {
         onToggleMuteRef.current();
       });
@@ -603,10 +576,10 @@ export function useMeetPopout({
       // Initial render
       updatePopoutContent();
 
-      // Start update loop
-      updateIntervalRef.current = setInterval(updatePopoutContent, 250);
+      updateIntervalRef.current = setInterval(() => {
+        updatePopoutRef.current?.();
+      }, 250);
 
-      // Listen for close
       pipWin.addEventListener("pagehide", () => {
         setIsPopoutActive(false);
         popoutWindowRef.current = null;
@@ -629,8 +602,6 @@ export function useMeetPopout({
     updatePopoutContent,
   ]);
 
-  // ── Close popout ──
-
   const closePopout = useCallback(() => {
     const pipWin = popoutWindowRef.current;
     if (pipWin && !pipWin.closed) {
@@ -644,14 +615,12 @@ export function useMeetPopout({
     }
   }, []);
 
-  // ── Sync state changes into the popout ──
 
   useEffect(() => {
     if (!isPopoutActive || !popoutWindowRef.current) return;
     updatePopoutContent();
   }, [isPopoutActive, updatePopoutContent]);
 
-  // ── Close when leaving the call ──
 
   useEffect(() => {
     if (!isJoined && isPopoutActive) {
@@ -659,7 +628,6 @@ export function useMeetPopout({
     }
   }, [isJoined, isPopoutActive, closePopout]);
 
-  // ── Cleanup on unmount ──
 
   useEffect(() => {
     return () => {
