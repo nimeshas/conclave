@@ -6,12 +6,10 @@ import type { Device } from "mediasoup-client";
 import {
   MAX_RECONNECT_ATTEMPTS,
   MEETS_ICE_SERVERS,
-  LOW_VIDEO_MAX_BITRATE,
   OPUS_MAX_AVERAGE_BITRATE,
   RECONNECT_DELAY_MS,
   SOCKET_TIMEOUT_MS,
   SOCKET_CONNECT_TIMEOUT_MS,
-  STANDARD_VIDEO_MAX_BITRATE,
   TRANSPORT_DISCONNECT_GRACE_MS,
   PRODUCER_SYNC_INTERVAL_MS,
 } from "../lib/constants";
@@ -36,6 +34,10 @@ import type {
 import type { ParticipantAction } from "../lib/participant-reducer";
 import { createMeetError, normalizeDisplayName } from "../lib/utils";
 import { normalizeChatMessage } from "../lib/chat-commands";
+import {
+  buildWebcamSimulcastEncodings,
+  buildWebcamSingleLayerEncoding,
+} from "../lib/video-encodings";
 import type { MeetRefs } from "./useMeetRefs";
 
 interface UseMeetSocketOptions {
@@ -357,7 +359,7 @@ export function useMeetSocket({
             userId: info.userId,
             cameraOff: true,
           });
-        } else if (info.kind === "audio") {
+        } else if (info.kind === "audio" && info.type === "webcam") {
           dispatchParticipants({
             type: "UPDATE_MUTED",
             userId: info.userId,
@@ -715,15 +717,25 @@ export function useMeetSocket({
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
         try {
-          const maxBitrate =
-            videoQualityRef.current === "low"
-              ? LOW_VIDEO_MAX_BITRATE
-              : STANDARD_VIDEO_MAX_BITRATE;
-          const videoProducer = await transport.produce({
-            track: videoTrack,
-            encodings: [{ maxBitrate }],
-            appData: { type: "webcam" as ProducerType, paused: isCameraOff },
-          });
+          const quality = videoQualityRef.current;
+          let videoProducer;
+          try {
+            videoProducer = await transport.produce({
+              track: videoTrack,
+              encodings: buildWebcamSimulcastEncodings(quality),
+              appData: { type: "webcam" as ProducerType, paused: isCameraOff },
+            });
+          } catch (simulcastError) {
+            console.warn(
+              "[Meets] Simulcast video produce failed, retrying single-layer:",
+              simulcastError
+            );
+            videoProducer = await transport.produce({
+              track: videoTrack,
+              encodings: [buildWebcamSingleLayerEncoding(quality)],
+              appData: { type: "webcam" as ProducerType, paused: isCameraOff },
+            });
+          }
 
           if (isCameraOff) {
             videoProducer.pause();
@@ -810,18 +822,23 @@ export function useMeetSocket({
                 });
               };
 
+              const isWebcamAudio =
+                response.kind === "audio" && producerInfo.type === "webcam";
+              const isWebcamVideo =
+                response.kind === "video" && producerInfo.type === "webcam";
+
               const handleTrackMuted = () => {
-                if (response.kind === "audio") {
+                if (isWebcamAudio) {
                   updateMutedState(true);
-                } else {
+                } else if (isWebcamVideo) {
                   updateCameraState(true);
                 }
               };
 
               const handleTrackUnmuted = () => {
-                if (response.kind === "audio") {
+                if (isWebcamAudio) {
                   updateMutedState(false);
-                } else {
+                } else if (isWebcamVideo) {
                   updateCameraState(false);
                 }
               };
@@ -846,21 +863,10 @@ export function useMeetSocket({
               }
 
               if (producerInfo.paused) {
-                if (response.kind === "audio") {
-                  dispatchParticipants({
-                    type: "UPDATE_MUTED",
-                    userId: producerInfo.producerUserId,
-                    muted: true,
-                  });
-                } else if (
-                  response.kind === "video" &&
-                  producerInfo.type === "webcam"
-                ) {
-                  dispatchParticipants({
-                    type: "UPDATE_CAMERA_OFF",
-                    userId: producerInfo.producerUserId,
-                    cameraOff: true,
-                  });
+                if (isWebcamAudio) {
+                  updateMutedState(true);
+                } else if (isWebcamVideo) {
+                  updateCameraState(true);
                 }
               }
 
@@ -915,6 +921,23 @@ export function useMeetSocket({
         producers.map((producer) => producer.producerId),
       );
 
+      for (const producerInfo of producers) {
+        if (producerInfo.type !== "webcam") continue;
+        if (producerInfo.kind === "audio") {
+          dispatchParticipants({
+            type: "UPDATE_MUTED",
+            userId: producerInfo.producerUserId,
+            muted: Boolean(producerInfo.paused),
+          });
+        } else if (producerInfo.kind === "video") {
+          dispatchParticipants({
+            type: "UPDATE_CAMERA_OFF",
+            userId: producerInfo.producerUserId,
+            cameraOff: Boolean(producerInfo.paused),
+          });
+        }
+      }
+
       for (const producerId of producerMapRef.current.keys()) {
         if (!serverProducerIds.has(producerId)) {
           handleProducerClosed(producerId);
@@ -936,6 +959,7 @@ export function useMeetSocket({
     producerMapRef,
     consumersRef,
     pendingProducersRef,
+    dispatchParticipants,
     consumeProducer,
     handleProducerClosed,
   ]);
@@ -1220,9 +1244,10 @@ export function useMeetSocket({
                 isGhost?: boolean;
               }) => {
                 console.log("[Meets] User joined:", joinedUserId);
-                if (joinedUserId !== userId) {
-                  playNotificationSound("join");
+                if (joinedUserId === userId) {
+                  return;
                 }
+                playNotificationSound("join");
                 if (displayName) {
                   setDisplayNames((prev) => {
                     const next = new Map(prev);
@@ -1293,9 +1318,22 @@ export function useMeetSocket({
               }) => {
                 if (!isRoomEvent(eventRoomId)) return;
                 const snapshot = new Map<string, string>();
-                (users || []).forEach(({ userId, displayName }) => {
+                (users || []).forEach(({ userId: snapshotUserId, displayName }) => {
                   if (displayName) {
-                    snapshot.set(userId, displayName);
+                    snapshot.set(snapshotUserId, displayName);
+                  }
+                  if (snapshotUserId !== userId) {
+                    const leaveTimeout = leaveTimeoutsRef.current.get(
+                      snapshotUserId
+                    );
+                    if (leaveTimeout) {
+                      window.clearTimeout(leaveTimeout);
+                      leaveTimeoutsRef.current.delete(snapshotUserId);
+                    }
+                    dispatchParticipants({
+                      type: "ADD_PARTICIPANT",
+                      userId: snapshotUserId,
+                    });
                   }
                 });
                 setDisplayNames(snapshot);
@@ -1342,10 +1380,19 @@ export function useMeetSocket({
 
             socket.on(
               "participantMuted",
-              ({ userId, muted }: { userId: string; muted: boolean }) => {
+              ({
+                userId: mutedUserId,
+                muted,
+                roomId: eventRoomId,
+              }: {
+                userId: string;
+                muted: boolean;
+                roomId?: string;
+              }) => {
+                if (!isRoomEvent(eventRoomId)) return;
                 dispatchParticipants({
                   type: "UPDATE_MUTED",
-                  userId,
+                  userId: mutedUserId,
                   muted,
                 });
               }
@@ -1356,10 +1403,13 @@ export function useMeetSocket({
               ({
                 userId: camUserId,
                 cameraOff,
+                roomId: eventRoomId,
               }: {
                 userId: string;
                 cameraOff: boolean;
+                roomId?: string;
               }) => {
+                if (!isRoomEvent(eventRoomId)) return;
                 dispatchParticipants({
                   type: "UPDATE_CAMERA_OFF",
                   userId: camUserId,
