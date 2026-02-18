@@ -152,6 +152,8 @@ export default function MeetsClient({
 
   useHotkey(HOTKEYS.toggleMute.keys as RegisterableHotkey, handleToggleMuteCommand, {
     enabled: connectionState === "joined",
+    requireReset: true,
+    ignoreInputs: true,
   });
 
   const handleToggleCameraCommand = useCallback(() => {
@@ -362,18 +364,26 @@ export default function MeetsClient({
 
   useHotkey(HOTKEYS.toggleCamera.keys as RegisterableHotkey, handleToggleCameraCommand, {
     enabled: connectionState === "joined",
+    requireReset: true,
+    ignoreInputs: true,
   });
 
   useHotkey(HOTKEYS.toggleHandRaise.keys as RegisterableHotkey, toggleHandRaised, {
     enabled: connectionState === "joined",
+    requireReset: true,
+    ignoreInputs: true,
   });
 
   useHotkey(HOTKEYS.toggleChat.keys as RegisterableHotkey, toggleChat, {
     enabled: connectionState === "joined",
+    requireReset: true,
+    ignoreInputs: true,
   });
 
   useHotkey(HOTKEYS.toggleParticipants.keys as RegisterableHotkey, () => setIsParticipantsOpen((prev) => !prev), {
     enabled: connectionState === "joined",
+    requireReset: true,
+    ignoreInputs: true,
   });
 
   const socket = useMeetSocket({
