@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import {
   AppState,
+  BackHandler,
   Linking,
   NativeModules,
   Platform,
@@ -325,6 +326,13 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
   const isJoined = connectionState === "joined";
   const effectiveActiveSpeakerId = ttsSpeakerId ?? activeSpeakerId;
   const isLoading =
+    connectionState === "connecting" ||
+    connectionState === "joining" ||
+    connectionState === "reconnecting" ||
+    connectionState === "waiting";
+  const blockBackNavigation =
+    hasActiveCall ||
+    isJoined ||
     connectionState === "connecting" ||
     connectionState === "joining" ||
     connectionState === "reconnecting" ||
@@ -801,6 +809,68 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
     setIsSettingsSheetOpen(false);
     toggleChat();
   }, [toggleChat, setIsParticipantsOpen, setIsReactionSheetOpen, setIsSettingsSheetOpen]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+
+    const onBackPress = () => {
+      if (!blockBackNavigation) {
+        return false;
+      }
+
+      if (isDisplayNameSheetOpen) {
+        setIsDisplayNameSheetOpen(false);
+        return true;
+      }
+
+      if (isSettingsSheetOpen) {
+        setIsSettingsSheetOpen(false);
+        return true;
+      }
+
+      if (isReactionSheetOpen) {
+        setIsReactionSheetOpen(false);
+        return true;
+      }
+
+      if (isParticipantsOpen) {
+        setIsParticipantsOpen(false);
+        return true;
+      }
+
+      if (isChatOpen) {
+        toggleChat();
+        return true;
+      }
+
+      if (meetError) {
+        setMeetError(null);
+        return true;
+      }
+
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      onBackPress
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [
+    blockBackNavigation,
+    isDisplayNameSheetOpen,
+    isSettingsSheetOpen,
+    isReactionSheetOpen,
+    isParticipantsOpen,
+    isChatOpen,
+    toggleChat,
+    meetError,
+    setMeetError,
+    setIsParticipantsOpen,
+  ]);
 
   useEffect(() => {
     if (initialRoomId && !roomId) {
