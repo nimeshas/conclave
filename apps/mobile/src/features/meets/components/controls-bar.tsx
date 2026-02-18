@@ -45,6 +45,7 @@ interface ControlsBarProps {
   isCameraOff: boolean;
   isHandRaised: boolean;
   isScreenSharing: boolean;
+  isScreenShareAvailable?: boolean;
   isChatOpen: boolean;
   isRoomLocked: boolean;
   isAdmin: boolean;
@@ -52,6 +53,7 @@ interface ControlsBarProps {
   unreadCount: number;
   availableWidth: number;
   isWhiteboardActive?: boolean;
+  showWhiteboardControl?: boolean;
   isAppsLocked?: boolean;
   onToggleMute: () => void;
   onToggleCamera: () => void;
@@ -193,6 +195,7 @@ export function ControlsBar({
   isCameraOff,
   isHandRaised,
   isScreenSharing,
+  isScreenShareAvailable = true,
   isChatOpen,
   isRoomLocked,
   isAdmin,
@@ -200,6 +203,7 @@ export function ControlsBar({
   unreadCount,
   availableWidth,
   isWhiteboardActive = false,
+  showWhiteboardControl = true,
   isAppsLocked = false,
   onToggleMute,
   onToggleCamera,
@@ -229,6 +233,7 @@ export function ControlsBar({
   );
   const iconSize = isTablet ? 22 : 19;
   const showInlineToggles = isTablet;
+  const canUseScreenShareControl = isScreenSharing || isScreenShareAvailable;
   const pillGap = isCompact ? 14 : Math.max(12, Math.round(buttonSize * 0.25));
 
   const handleReactionSelect = (emoji: string) => {
@@ -337,6 +342,26 @@ export function ControlsBar({
               </>
             ) : null}
 
+            {!showInlineToggles ? (
+              canUseScreenShareControl ? (
+                <ControlButton
+                  icon={ScreenShare}
+                  isActive={isScreenSharing}
+                  size={buttonSize}
+                  iconSize={iconSize}
+                  onPress={onToggleScreenShare}
+                />
+              ) : (
+                <ControlButton
+                  icon={Hand}
+                  isHandRaised={isHandRaised}
+                  size={buttonSize}
+                  iconSize={iconSize}
+                  onPress={onToggleHand}
+                />
+              )
+            ) : null}
+
             <ControlButton
               icon={MessageCircle}
               isActive={isChatOpen}
@@ -346,7 +371,7 @@ export function ControlsBar({
               onPress={onToggleChat}
             />
 
-            {onToggleWhiteboard ? (
+            {showWhiteboardControl && onToggleWhiteboard ? (
               <ControlButton
                 icon={StickyNote}
                 isActive={isWhiteboardActive}

@@ -813,8 +813,11 @@ export function useMeetMedia({
 
   const toggleMute = useCallback(async () => {
     if (ghostEnabled) return;
+    const previousMuted = isMuted;
+    const nextMuted = !previousMuted;
+    setIsMuted(nextMuted);
+
     let producer = audioProducerRef.current;
-    const nextMuted = !isMuted;
     const transport = producerTransportRef.current;
 
     if (!transport) {
@@ -830,7 +833,6 @@ export function useMeetMedia({
             .filter((track) => track.kind !== "audio");
           return new MediaStream(remaining);
         });
-        setIsMuted(true);
         return;
       }
 
@@ -839,7 +841,7 @@ export function useMeetMedia({
           audio: true,
         });
         if (!permissionState.audio) {
-          setIsMuted(true);
+          setIsMuted(previousMuted);
           setMeetError({
             code: "PERMISSION_DENIED",
             message: "Microphone permission denied",
@@ -870,11 +872,9 @@ export function useMeetMedia({
           }
           return new MediaStream([audioTrack]);
         });
-
-        setIsMuted(false);
       } catch (err) {
         console.error("[Meets] Failed to enable audio preview:", err);
-        setIsMuted(true);
+        setIsMuted(previousMuted);
         setMeetError(createMeetError(err, "MEDIA_ERROR"));
       }
       return;
@@ -922,8 +922,6 @@ export function useMeetMedia({
           () => {}
         );
       }
-
-      setIsMuted(true);
       return;
     }
 
@@ -934,7 +932,7 @@ export function useMeetMedia({
         audio: true,
       });
       if (!permissionState.audio) {
-        setIsMuted(true);
+        setIsMuted(previousMuted);
         setMeetError({
           code: "PERMISSION_DENIED",
           message: "Microphone permission denied",
@@ -993,11 +991,9 @@ export function useMeetMedia({
           audioProducerRef.current = null;
         });
       }
-
-      setIsMuted(false);
     } catch (err) {
       console.error("[Meets] Failed to restart audio:", err);
-      setIsMuted(true);
+      setIsMuted(previousMuted);
       setMeetError(createMeetError(err, "MEDIA_ERROR"));
     }
   }, [

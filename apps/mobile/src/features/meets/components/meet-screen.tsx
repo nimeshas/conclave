@@ -1098,17 +1098,12 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
       {isJoined && !isTablet ? (
         <SettingsSheet
           visible={isSettingsSheetOpen}
-          isScreenSharing={isScreenSharing}
           isHandRaised={isHandRaised}
           isRoomLocked={isRoomLocked}
           isAdmin={isAdmin}
           onOpenDisplayName={() => {
             setIsSettingsSheetOpen(false);
             setIsDisplayNameSheetOpen(true);
-          }}
-          onToggleScreenShare={() => {
-            setIsSettingsSheetOpen(false);
-            handleToggleScreenShare();
           }}
           onToggleHandRaised={() => {
             setIsSettingsSheetOpen(false);

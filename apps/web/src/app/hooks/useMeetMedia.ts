@@ -505,8 +505,12 @@ export function useMeetMedia({
 
   const toggleMute = useCallback(async () => {
     if (ghostEnabled) return;
+    const previousMuted = isMuted;
+    const nextMuted = !previousMuted;
+    // Optimistic UI update so mute/unmute reflects instantly.
+    setIsMuted(nextMuted);
+
     let producer = audioProducerRef.current;
-    const nextMuted = !isMuted;
 
     if (producer && producer.track?.readyState !== "live") {
       socketRef.current?.emit(
@@ -550,14 +554,15 @@ export function useMeetMedia({
           () => {}
         );
       }
-
-      setIsMuted(true);
       return;
     }
 
     try {
       const transport = producerTransportRef.current;
-      if (!transport) return;
+      if (!transport) {
+        setIsMuted(previousMuted);
+        return;
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: buildAudioConstraints(selectedAudioInputDeviceId),
@@ -609,11 +614,9 @@ export function useMeetMedia({
           audioProducerRef.current = null;
         });
       }
-
-      setIsMuted(false);
     } catch (err) {
       console.error("[Meets] Failed to restart audio:", err);
-      setIsMuted(true);
+      setIsMuted(previousMuted);
       setMeetError(createMeetError(err, "MEDIA_ERROR"));
     }
   }, [

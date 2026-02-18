@@ -317,6 +317,8 @@ export function CallScreen({
           : null;
 
   const isPresenting = Boolean(presentationStream);
+  const isScreenShareAvailable =
+    isScreenSharing || !isPresenting || presenterName === "You";
 
   useEffect(() => {
     if (Platform.OS === "android") {
@@ -516,6 +518,7 @@ export function CallScreen({
         isCameraOff={isCameraOff}
         isHandRaised={isHandRaised}
         isScreenSharing={isScreenSharing}
+        isScreenShareAvailable={isScreenShareAvailable}
         isChatOpen={isChatOpen}
         isRoomLocked={isRoomLocked}
         isAdmin={isAdmin}
@@ -530,6 +533,7 @@ export function CallScreen({
         onToggleParticipants={onToggleParticipants}
         onToggleRoomLock={onToggleRoomLock}
         isWhiteboardActive={isWhiteboardActive}
+        showWhiteboardControl={isTablet}
         isAppsLocked={appsState.locked}
         onToggleWhiteboard={handleToggleWhiteboard}
         onToggleAppsLock={handleToggleAppsLock}

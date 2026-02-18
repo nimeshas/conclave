@@ -1190,12 +1190,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.cream,
     fontFamily: "PolySans-Regular",
+    textAlign: "center",
+    maxWidth: "100%",
   },
   permissionText: {
     fontSize: 12,
     lineHeight: textLineHeight(12, 1.35),
     color: COLORS.creamLight,
     fontFamily: "PolySans-Regular",
+    textAlign: "center",
+    maxWidth: "100%",
   },
   permissionButton: {
     alignSelf: "flex-start",
@@ -1252,6 +1256,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
     fontFamily: "PolySans-Mono",
+    textAlign: "center",
+    flexShrink: 1,
   },
   joinDockInputRow: {
     flexDirection: "row",
@@ -1259,13 +1265,16 @@ const styles = StyleSheet.create({
     gap: 8,
     height: "100%",
     paddingHorizontal: 14,
+    minWidth: 0,
   },
   joinDockInputField: {
     flex: 1,
+    minWidth: 0,
     color: COLORS.cream,
     fontSize: 14,
     fontFamily: "PolySans-Regular",
     includeFontPadding: false,
+    paddingRight: 4,
   },
   joinDockArrow: {
     width: 36,
@@ -1300,6 +1309,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFFFFF",
     fontFamily: "PolySans-Regular",
+    flexShrink: 1,
+    textAlign: "center",
   },
   centerContent: {
     flex: 1,
@@ -1734,6 +1745,8 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     fontWeight: "500",
     fontFamily: "PolySans-Mono",
+    textAlign: "center",
+    flexShrink: 1,
   },
   actionContainer: {
     gap: 16,
@@ -1757,6 +1770,8 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#FFFFFF",
     fontFamily: "PolySans-Regular",
+    flexShrink: 1,
+    textAlign: "center",
   },
   suggestionsContainer: {
     flexDirection: "row",

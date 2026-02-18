@@ -3,17 +3,16 @@ import { StyleSheet, View as RNView } from "react-native";
 import * as Haptics from "expo-haptics";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { Pressable, View } from "@/tw";
-import { ClipboardPenLine, Hand, Lock, LockOpen, ScreenShare } from "lucide-react-native";
+import { ClipboardPenLine, Hand, Lock, LockOpen, StickyNote } from "lucide-react-native";
+import { useApps } from "@conclave/apps-sdk";
 import { SHEET_COLORS, SHEET_THEME } from "./true-sheet-theme";
 
 interface SettingsSheetProps {
   visible: boolean;
-  isScreenSharing: boolean;
   isHandRaised: boolean;
   isRoomLocked: boolean;
   isAdmin?: boolean;
   onOpenDisplayName?: () => void;
-  onToggleScreenShare: () => void;
   onToggleHandRaised: () => void;
   onToggleRoomLock?: (locked: boolean) => void;
   onClose: () => void;
@@ -21,22 +20,30 @@ interface SettingsSheetProps {
 
 export function SettingsSheet({
   visible,
-  isScreenSharing,
   isHandRaised,
   isRoomLocked,
   isAdmin = false,
   onOpenDisplayName,
-  onToggleScreenShare,
   onToggleHandRaised,
   onToggleRoomLock,
   onClose,
 }: SettingsSheetProps) {
+  const { state: appsState, openApp, closeApp } = useApps();
   const sheetRef = useRef<TrueSheet>(null);
   const hasPresented = useRef(false);
+  const isWhiteboardActive = appsState.activeAppId === "whiteboard";
 
   const handleDismiss = useCallback(() => {
     void sheetRef.current?.dismiss();
   }, []);
+
+  const handleToggleWhiteboard = useCallback(() => {
+    if (isWhiteboardActive) {
+      closeApp();
+      return;
+    }
+    openApp("whiteboard");
+  }, [closeApp, isWhiteboardActive, openApp]);
 
   const handleDidDismiss = useCallback(() => {
     hasPresented.current = false;
@@ -79,20 +86,27 @@ export function SettingsSheet({
         {/* Icon Grid */}
         <RNView style={styles.grid}>
           <Pressable
-            onPress={() => trigger(onToggleScreenShare)}
+            onPress={() =>
+              trigger(() => {
+                handleToggleWhiteboard();
+                handleDismiss();
+              })
+            }
             style={({ pressed }) => [
               styles.gridItem,
-              isScreenSharing && styles.gridItemActive,
+              isWhiteboardActive && styles.gridItemActive,
               pressed && styles.gridItemPressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Toggle screen sharing"
-            accessibilityState={{ selected: isScreenSharing }}
+            accessibilityLabel={
+              isWhiteboardActive ? "Close whiteboard" : "Open whiteboard"
+            }
+            accessibilityState={{ selected: isWhiteboardActive }}
           >
-            <ScreenShare
+            <StickyNote
               size={28}
               color={SHEET_COLORS.text}
-              fill={isScreenSharing ? "rgba(254, 252, 217, 0.35)" : "transparent"}
+              fill={isWhiteboardActive ? "rgba(254, 252, 217, 0.35)" : "transparent"}
               strokeWidth={1.5}
             />
           </Pressable>
