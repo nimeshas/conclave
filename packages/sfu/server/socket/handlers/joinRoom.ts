@@ -34,6 +34,7 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
         const { roomId, sessionId } = data;
         const user = (socket as any).user;
         const hostRequested = Boolean(user?.isHost ?? user?.isAdmin);
+        const allowRoomCreation = Boolean(user?.allowRoomCreation);
         const clientId =
           typeof user?.clientId === "string" ? user.clientId : "default";
         const clientPolicy =
@@ -67,7 +68,11 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
             });
             return;
           }
-          if (!hostRequested && !clientPolicy.allowNonHostRoomCreation) {
+          if (
+            !hostRequested &&
+            !allowRoomCreation &&
+            !clientPolicy.allowNonHostRoomCreation
+          ) {
             respond(callback, { error: "No room found." });
             return;
           }
@@ -106,6 +111,10 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
           room.hostUserKey = userKey;
         }
         const isPrimaryHost = room.hostUserKey === userKey;
+
+        if (isHost) {
+          socket.emit("hostAssigned", { roomId });
+        }
 
         if (isHostForExistingRoom && room.cleanupTimer) {
           Logger.info(`Host returning to room ${roomId}, cleanup cancelled.`);

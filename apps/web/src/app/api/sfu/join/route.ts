@@ -13,6 +13,7 @@ type JoinRequestBody = {
   };
   isHost?: boolean;
   isAdmin?: boolean;
+  allowRoomCreation?: boolean;
   clientId?: string;
 };
 
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
   const providedId = body?.user?.id?.trim() || undefined;
   const baseUserId = email || providedId || `guest-${sessionId}`;
   const isHost = Boolean(body?.isHost ?? body?.isAdmin);
+  const allowRoomCreation = Boolean(body?.allowRoomCreation);
 
   const token = jwt.sign(
     {
@@ -64,6 +66,7 @@ export async function POST(request: Request) {
       name,
       isHost,
       isAdmin: isHost,
+      allowRoomCreation,
       clientId,
       sessionId,
     },

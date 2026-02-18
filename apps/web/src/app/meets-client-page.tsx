@@ -60,6 +60,7 @@ export default function MeetsClientPage({
           sessionId,
           user: resolvedUser,
           isHost,
+          allowRoomCreation: forceJoinOnly,
           clientId,
         }),
       });
@@ -70,7 +71,7 @@ export default function MeetsClientPage({
 
       return response.json();
     },
-    [user]
+    [forceJoinOnly, user]
   );
 
   const getRooms = useCallback(async () => {
