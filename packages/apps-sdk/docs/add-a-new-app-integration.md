@@ -2,6 +2,23 @@
 
 This guide shows how to add a new in-meeting app to the Conclave Apps SDK integration (web + native), using the current whiteboard wiring as the reference pattern.
 
+## Fast path: scaffold first
+
+Instead of creating files manually, scaffold an app shell:
+
+```bash
+pnpm -C packages/apps-sdk run new:app polls
+```
+
+Useful options:
+
+- `--name "Polls"` to set display name
+- `--description "Live polls"` to set app description
+- `--no-native` or `--no-web` for platform-specific apps
+- `--dry-run` to preview changes without writing files
+
+The scaffold command creates core/web/native files (as requested), updates `packages/apps-sdk/package.json` exports, and adds explicit aliases to `apps/mobile/tsconfig.json`.
+
 ## What "integration" means in this repo
 
 You need to wire the app in five places:

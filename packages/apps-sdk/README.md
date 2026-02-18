@@ -5,6 +5,7 @@ Conclave in-meeting app SDK (shared web + native).
 ## Guides
 
 - [Add a New App Integration](./docs/add-a-new-app-integration.md)
+- [Contributing To Apps SDK](./docs/contributing-to-apps-sdk.md)
 
 ## Quick Start
 
@@ -34,6 +35,20 @@ const uploadAsset = createAssetUploadHandler({
 <AppsProvider socket={socket} user={user} isAdmin={isAdmin} uploadAsset={uploadAsset}>
   <MeetingUI />
 </AppsProvider>;
+```
+
+## Contributor DX
+
+Scaffold a new app shell (core + web + native + exports + mobile aliases):
+
+```bash
+pnpm -C packages/apps-sdk run new:app polls
+```
+
+Preview changes only:
+
+```bash
+pnpm -C packages/apps-sdk run new:app polls --dry-run
 ```
 
 ## Core Concepts
