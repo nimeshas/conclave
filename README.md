@@ -35,6 +35,7 @@ Conclave is a real-time meetings platform with:
 
 - `apps/web`: Next.js web client and API routes
 - `apps/mobile`: Expo/React Native mobile client
+- `apps/conclave-skip`: Skip.dev project for native clients
 - `packages/sfu`: mediasoup SFU and real-time socket handlers
 - `packages/apps-sdk`: in-meeting apps runtime SDK (registry, provider, Yjs sync, awareness, uploads)
 - `packages/shared-browser`: optional VNC-based shared browser service
