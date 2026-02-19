@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSmartParticipantOrder } from "./useSmartParticipantOrder";
 import type { Participant } from "../lib/types";
-import { isSystemUserId, prioritizeActiveSpeaker } from "../lib/utils";
+import { isSystemUserId } from "../lib/utils";
 
 
 interface DocumentPictureInPictureWindow extends Window {
@@ -331,6 +332,21 @@ export function useMeetPopout({
   const isPopoutSupported =
     typeof window !== "undefined" && "documentPictureInPicture" in window;
 
+  const remoteParticipants = useSmartParticipantOrder(
+    Array.from(participants.entries())
+      .filter(([userId]) => userId !== currentUserId && !isSystemUserId(userId))
+      .map(([userId, participant]) => ({
+        userId,
+        displayName: getDisplayName(userId),
+        videoStream: participant.videoStream ?? null,
+        isCameraOff: participant.isCameraOff,
+        isMuted: participant.isMuted,
+        isLocal: false,
+        isActiveSpeaker: activeSpeakerId === userId,
+      })),
+    activeSpeakerId
+  );
+
   const getVisibleParticipants = useCallback(() => {
     const visible: Array<{
       userId: string;
@@ -352,22 +368,6 @@ export function useMeetPopout({
       isActiveSpeaker: activeSpeakerId === currentUserId,
     });
 
-    const remoteParticipants = prioritizeActiveSpeaker(
-      Array.from(participants.entries())
-        .filter(
-          ([userId]) => userId !== currentUserId && !isSystemUserId(userId)
-        )
-        .map(([userId, participant]) => ({
-          userId,
-          displayName: getDisplayName(userId),
-          videoStream: participant.videoStream ?? null,
-          isCameraOff: participant.isCameraOff,
-          isMuted: participant.isMuted,
-          isLocal: false,
-          isActiveSpeaker: activeSpeakerId === userId,
-        })),
-      activeSpeakerId
-    );
     visible.push(...remoteParticipants);
 
     return visible;
@@ -377,8 +377,7 @@ export function useMeetPopout({
     isCameraOff,
     isMuted,
     activeSpeakerId,
-    participants,
-    getDisplayName,
+    remoteParticipants,
   ]);
 
   const updatePopoutContent = useCallback(() => {

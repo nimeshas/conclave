@@ -2,12 +2,12 @@
 
 import { Ghost, Globe, Hand, Loader2 } from "lucide-react";
 import { memo, useEffect, useRef, useState, type FormEvent } from "react";
+import { useSmartParticipantOrder } from "../hooks/useSmartParticipantOrder";
 import type { Participant } from "../lib/types";
 import {
     getSpeakerHighlightClasses,
     isSystemUserId,
     normalizeBrowserUrl,
-    prioritizeActiveSpeaker,
     resolveNoVncUrl,
 } from "../lib/utils";
 import ParticipantVideo from "./ParticipantVideo";
@@ -109,7 +109,7 @@ function BrowserLayout({
     })();
 
     const resolvedNoVncUrl = resolveNoVncUrl(noVncUrl);
-    const remoteParticipants = prioritizeActiveSpeaker(
+    const remoteParticipants = useSmartParticipantOrder(
         Array.from(participants.values()).filter(
             (participant) => !isSystemUserId(participant.userId)
         ),

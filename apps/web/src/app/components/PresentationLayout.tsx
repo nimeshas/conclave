@@ -2,12 +2,9 @@
 
 import { Ghost, Hand } from "lucide-react";
 import { memo, useEffect, useRef } from "react";
+import { useSmartParticipantOrder } from "../hooks/useSmartParticipantOrder";
 import type { Participant } from "../lib/types";
-import {
-  getSpeakerHighlightClasses,
-  isSystemUserId,
-  prioritizeActiveSpeaker,
-} from "../lib/utils";
+import { getSpeakerHighlightClasses, isSystemUserId } from "../lib/utils";
 import ParticipantVideo from "./ParticipantVideo";
 
 interface PresentationLayoutProps {
@@ -71,7 +68,7 @@ function PresentationLayout({
     }
   }, [presentationStream]);
 
-  const remoteParticipants = prioritizeActiveSpeaker(
+  const remoteParticipants = useSmartParticipantOrder(
     Array.from(participants.values()).filter(
       (participant) => !isSystemUserId(participant.userId)
     ),

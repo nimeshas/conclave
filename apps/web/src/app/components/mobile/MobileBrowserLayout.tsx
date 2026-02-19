@@ -2,11 +2,11 @@
 
 import { Ghost, Globe, Loader2, MicOff } from "lucide-react";
 import { memo, useEffect, useRef, useState, type FormEvent } from "react";
+import { useSmartParticipantOrder } from "../../hooks/useSmartParticipantOrder";
 import type { Participant } from "../../lib/types";
 import {
   isSystemUserId,
   normalizeBrowserUrl,
-  prioritizeActiveSpeaker,
   resolveNoVncUrl,
 } from "../../lib/utils";
 
@@ -74,7 +74,7 @@ function MobileBrowserLayout({
     setNavInput(browserUrl);
   }, [browserUrl]);
 
-  const participantArray = prioritizeActiveSpeaker(
+  const participantArray = useSmartParticipantOrder(
     Array.from(participants.values()).filter(
       (participant) => !isSystemUserId(participant.userId)
     ),

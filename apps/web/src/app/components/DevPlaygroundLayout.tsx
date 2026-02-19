@@ -3,12 +3,9 @@
 import { Ghost, Hand } from "lucide-react";
 import { memo, useEffect, useRef } from "react";
 import { DevPlaygroundWebApp } from "@conclave/apps-sdk/dev-playground/web";
+import { useSmartParticipantOrder } from "../hooks/useSmartParticipantOrder";
 import type { Participant } from "../lib/types";
-import {
-  getSpeakerHighlightClasses,
-  isSystemUserId,
-  prioritizeActiveSpeaker,
-} from "../lib/utils";
+import { getSpeakerHighlightClasses, isSystemUserId } from "../lib/utils";
 import ParticipantVideo from "./ParticipantVideo";
 
 interface DevPlaygroundLayoutProps {
@@ -55,7 +52,7 @@ function DevPlaygroundLayout({
     }
   }, [localStream]);
 
-  const participantsList = prioritizeActiveSpeaker(
+  const participantsList = useSmartParticipantOrder(
     Array.from(participants.values()).filter(
       (participant) =>
         !isSystemUserId(participant.userId) &&
