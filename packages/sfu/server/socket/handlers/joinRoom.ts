@@ -113,7 +113,7 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
         const isPrimaryHost = room.hostUserKey === userKey;
 
         if (isHost) {
-          socket.emit("hostAssigned", { roomId });
+          socket.emit("hostAssigned", { roomId, hostUserId: userId });
         }
 
         if (isHostForExistingRoom && room.cleanupTimer) {
@@ -158,6 +158,7 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
             rtpCapabilities: room.rtpCapabilities,
             existingProducers: [],
             status: "waiting",
+            hostUserId: room.getHostUserId(),
           });
           return;
         }
@@ -194,6 +195,7 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
             rtpCapabilities: room.rtpCapabilities,
             existingProducers: [],
             status: "waiting",
+            hostUserId: room.getHostUserId(),
           });
           return;
         }
@@ -257,6 +259,11 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
         context.currentRoom.addClient(context.currentClient);
 
         socket.join(roomChannelId);
+
+        io.to(roomChannelId).emit("hostChanged", {
+          roomId: context.currentRoom.id,
+          hostUserId: context.currentRoom.getHostUserId(),
+        });
 
         if (context.currentClient instanceof Admin) {
           const pendingUsers = Array.from(
@@ -345,6 +352,7 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
           rtpCapabilities: context.currentRoom.rtpCapabilities,
           existingProducers,
           status: "joined",
+          hostUserId: context.currentRoom.getHostUserId(),
         });
       } catch (error) {
         Logger.error("Error joining room:", error);

@@ -108,6 +108,7 @@ export interface JoinRoomResponse {
   rtpCapabilities: RtpCapabilities;
   existingProducers: ProducerInfo[];
   status?: "waiting" | "joined";
+  hostUserId?: string | null;
 }
 
 export interface TransportResponse {

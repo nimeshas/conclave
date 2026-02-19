@@ -107,6 +107,7 @@ interface MobileMeetsMainContentProps {
   onDismissMeetError?: () => void;
   onRetryMedia?: () => void;
   onTestSpeaker?: () => void;
+  hostUserId: string | null;
 }
 
 function MobileMeetsMainContent({
@@ -183,6 +184,7 @@ function MobileMeetsMainContent({
   onDismissMeetError,
   onRetryMedia,
   onTestSpeaker,
+  hostUserId,
 }: MobileMeetsMainContentProps) {
   const { state: appsState, openApp, closeApp, setLocked, refreshState } = useApps();
   const isDevPlaygroundEnabled = process.env.NODE_ENV === "development";
@@ -503,6 +505,7 @@ function MobileMeetsMainContent({
           isAdmin={isAdmin}
           pendingUsers={pendingUsers}
           getDisplayName={resolveDisplayName}
+          hostUserId={hostUserId}
         />
       )}
     </div>

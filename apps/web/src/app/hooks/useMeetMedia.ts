@@ -93,6 +93,7 @@ export function useMeetMedia({
   const updateVideoQualityRef = useRef<
     (quality: VideoQuality) => Promise<void>
   >(async () => {});
+  const audioRecoveryInFlightRef = useRef(false);
   const cameraRecoveryInFlightRef = useRef(false);
   const buildAudioConstraints = useCallback(
     (deviceId?: string): MediaTrackConstraints => ({
@@ -557,9 +558,6 @@ export function useMeetMedia({
     if (ghostEnabled) return;
     const previousMuted = isMuted;
     const nextMuted = !previousMuted;
-    // Optimistic UI update so mute/unmute reflects instantly.
-    setIsMuted(nextMuted);
-
     let producer = audioProducerRef.current;
 
     if (producer && producer.track?.readyState !== "live") {
@@ -576,6 +574,7 @@ export function useMeetMedia({
     }
 
     if (nextMuted) {
+      setIsMuted(true);
       const currentTrack = localStreamRef.current?.getAudioTracks()[0];
       if (currentTrack) {
         stopLocalTrack(currentTrack);
@@ -607,6 +606,7 @@ export function useMeetMedia({
       return;
     }
 
+    let createdTrack: MediaStreamTrack | null = null;
     try {
       const transport = producerTransportRef.current;
       if (!transport) {
@@ -618,6 +618,7 @@ export function useMeetMedia({
         audio: buildAudioConstraints(selectedAudioInputDeviceId),
       });
       const audioTrack = stream.getAudioTracks()[0];
+      createdTrack = audioTrack ?? null;
 
       if (!audioTrack) throw new Error("No audio track obtained");
       audioTrack.onended = () => {
@@ -664,8 +665,19 @@ export function useMeetMedia({
           audioProducerRef.current = null;
         });
       }
+      setIsMuted(false);
     } catch (err) {
       console.error("[Meets] Failed to restart audio:", err);
+      if (createdTrack) {
+        stopLocalTrack(createdTrack);
+        setLocalStream((prev) => {
+          if (!prev) return prev;
+          const remaining = prev
+            .getTracks()
+            .filter((track) => track !== createdTrack && track.kind !== "audio");
+          return new MediaStream(remaining);
+        });
+      }
       setIsMuted(previousMuted);
       setMeetError(createMeetError(err, "MEDIA_ERROR"));
     }
@@ -681,6 +693,123 @@ export function useMeetMedia({
     localStreamRef,
     setLocalStream,
     producerTransportRef,
+    setIsMuted,
+    setMeetError,
+    OPUS_MAX_AVERAGE_BITRATE,
+  ]);
+
+  useEffect(() => {
+    if (ghostEnabled) return;
+    if (connectionState !== "joined") return;
+    if (isMuted) return;
+    if (audioProducerRef.current) return;
+    if (audioRecoveryInFlightRef.current) return;
+
+    const transport = producerTransportRef.current;
+    if (!transport) return;
+
+    let cancelled = false;
+    audioRecoveryInFlightRef.current = true;
+
+    const recoverAudioProducer = async () => {
+      let createdTrack: MediaStreamTrack | null = null;
+      try {
+        let audioTrack = localStreamRef.current?.getAudioTracks()[0] ?? null;
+
+        if (!audioTrack || audioTrack.readyState !== "live") {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: buildAudioConstraints(selectedAudioInputDeviceId),
+          });
+          audioTrack = stream.getAudioTracks()[0] ?? null;
+          createdTrack = audioTrack;
+        }
+
+        if (!audioTrack) {
+          throw new Error("No audio track available for recovery");
+        }
+
+        audioTrack.onended = () => {
+          handleLocalTrackEnded("audio", audioTrack);
+        };
+
+        if (createdTrack) {
+          setLocalStream((prev) => {
+            if (prev) {
+              const next = new MediaStream(prev.getTracks());
+              next.getAudioTracks().forEach((track) => {
+                stopLocalTrack(track);
+                next.removeTrack(track);
+              });
+              next.addTrack(audioTrack);
+              return next;
+            }
+            return new MediaStream([audioTrack]);
+          });
+        }
+
+        const audioProducer = await transport.produce({
+          track: audioTrack,
+          codecOptions: {
+            opusStereo: true,
+            opusFec: true,
+            opusDtx: true,
+            opusMaxAverageBitrate: OPUS_MAX_AVERAGE_BITRATE,
+          },
+          appData: { type: "webcam" as ProducerType, paused: false },
+        });
+
+        if (cancelled) {
+          try {
+            audioProducer.close();
+          } catch {}
+          return;
+        }
+
+        audioProducerRef.current = audioProducer;
+        audioProducer.on("transportclose", () => {
+          if (audioProducerRef.current?.id === audioProducer.id) {
+            audioProducerRef.current = null;
+          }
+        });
+      } catch (err) {
+        console.error("[Meets] Audio producer recovery failed:", err);
+        if (!cancelled) {
+          const existingAudioTracks = localStreamRef.current?.getAudioTracks() ?? [];
+          existingAudioTracks.forEach((track) => {
+            stopLocalTrack(track);
+          });
+          setLocalStream((prev) => {
+            if (!prev) return prev;
+            const remaining = prev
+              .getTracks()
+              .filter((track) => track.kind !== "audio");
+            return new MediaStream(remaining);
+          });
+          setIsMuted(true);
+          setMeetError(createMeetError(err, "MEDIA_ERROR"));
+        }
+      } finally {
+        audioRecoveryInFlightRef.current = false;
+      }
+    };
+
+    void recoverAudioProducer();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    ghostEnabled,
+    connectionState,
+    isMuted,
+    selectedAudioInputDeviceId,
+    handleLocalTrackEnded,
+    stopLocalTrack,
+    buildAudioConstraints,
+    producerTransportRef,
+    audioProducerRef,
+    localStreamRef,
+    setLocalStream,
     setIsMuted,
     setMeetError,
     OPUS_MAX_AVERAGE_BITRATE,

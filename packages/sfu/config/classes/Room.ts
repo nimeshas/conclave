@@ -326,6 +326,21 @@ export class Room {
     return admins;
   }
 
+  getHostUserId(): string | null {
+    if (this.hostUserKey) {
+      for (const [userId, userKey] of this.userKeysById.entries()) {
+        if (userKey !== this.hostUserKey) continue;
+        const client = this.clients.get(userId);
+        if (client instanceof Admin) {
+          return userId;
+        }
+      }
+    }
+
+    const fallbackAdmin = this.getAdmins()[0];
+    return fallbackAdmin?.id ?? null;
+  }
+
   hasActiveAdmin(): boolean {
     for (const client of this.clients.values()) {
       if (client instanceof Admin) {

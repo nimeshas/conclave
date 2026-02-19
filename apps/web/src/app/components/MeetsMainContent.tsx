@@ -119,6 +119,7 @@ interface MeetsMainContentProps {
   isPopoutSupported?: boolean;
   onOpenPopout?: () => void;
   onClosePopout?: () => void;
+  hostUserId: string | null;
 }
 
 export default function MeetsMainContent({
@@ -204,6 +205,7 @@ export default function MeetsMainContent({
   isPopoutSupported,
   onOpenPopout,
   onClosePopout,
+  hostUserId,
 }: MeetsMainContentProps) {
   const { state: appsState, openApp, closeApp, setLocked, refreshState } = useApps();
   const isDevPlaygroundEnabled = process.env.NODE_ENV === "development";
@@ -580,6 +582,7 @@ export default function MeetsMainContent({
           getRooms={getRoomsForRedirect}
           getDisplayName={resolveDisplayName}
           onPendingUserStale={handlePendingUserStale}
+          hostUserId={hostUserId}
         />
       )}
 

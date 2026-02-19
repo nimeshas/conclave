@@ -105,7 +105,10 @@ export const registerDisconnectHandlers = (
                 locked: activeRoom.isLocked,
                 roomId,
               });
-              promoted.socket.emit("hostAssigned", { roomId });
+              promoted.socket.emit("hostAssigned", {
+                roomId,
+                hostUserId: promoted.id,
+              });
               if (activeRoom.pendingClients.size > 0) {
                 for (const pending of activeRoom.pendingClients.values()) {
                   pending.socket.emit("waitingRoomStatus", {
@@ -159,6 +162,11 @@ export const registerDisconnectHandlers = (
           } else {
             Logger.info(`Admin left room ${roomId}, but other admins remain.`);
           }
+
+          io.to(roomChannelId).emit("hostChanged", {
+            roomId,
+            hostUserId: activeRoom.getHostUserId(),
+          });
         }
 
         if (state.rooms.has(roomChannelId)) {

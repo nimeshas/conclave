@@ -1,6 +1,6 @@
 "use client";
 
-import { Ghost, Hand, MicOff, X } from "lucide-react";
+import { Crown, Ghost, Hand, MicOff, X } from "lucide-react";
 import { memo } from "react";
 import type { Socket } from "socket.io-client";
 import type { Participant } from "../../lib/types";
@@ -14,6 +14,7 @@ interface MobileParticipantsPanelProps {
   isAdmin: boolean;
   pendingUsers: Map<string, string>;
   getDisplayName: (userId: string) => string;
+  hostUserId?: string | null;
 }
 
 function MobileParticipantsPanel({
@@ -24,6 +25,7 @@ function MobileParticipantsPanel({
   isAdmin,
   pendingUsers,
   getDisplayName,
+  hostUserId,
 }: MobileParticipantsPanelProps) {
   const participantArray = Array.from(participants.values()).filter(
     (participant) => !isSystemUserId(participant.userId)
@@ -116,6 +118,12 @@ function MobileParticipantsPanel({
                     {formatName(getDisplayName(currentUserId), 16)}
                   </span>
                   <span className="text-[9px] text-[#F95F4A]/60 uppercase">(You)</span>
+                  {hostUserId === currentUserId && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-amber-200">
+                      <Crown className="h-2.5 w-2.5" />
+                      Host
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -135,9 +143,17 @@ function MobileParticipantsPanel({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm text-[#FEFCD9] truncate block">
-                    {formatName(getDisplayName(participant.userId), 16)}
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm text-[#FEFCD9] truncate block">
+                      {formatName(getDisplayName(participant.userId), 16)}
+                    </span>
+                    {hostUserId === participant.userId && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-amber-200">
+                        <Crown className="h-2.5 w-2.5" />
+                        Host
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {participant.isHandRaised && (

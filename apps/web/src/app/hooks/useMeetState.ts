@@ -34,6 +34,7 @@ export function useMeetState({ initialRoomId }: UseMeetStateOptions) {
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isRoomLocked, setIsRoomLocked] = useState(false);
   const [isBrowserAudioMuted, setIsBrowserAudioMuted] = useState(false);
+  const [hostUserId, setHostUserId] = useState<string | null>(null);
 
   return {
     connectionState,
@@ -70,5 +71,7 @@ export function useMeetState({ initialRoomId }: UseMeetStateOptions) {
     setIsRoomLocked,
     isBrowserAudioMuted,
     setIsBrowserAudioMuted,
+    hostUserId,
+    setHostUserId,
   };
 }

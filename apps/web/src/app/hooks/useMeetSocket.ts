@@ -69,6 +69,7 @@ interface UseMeetSocketOptions {
   setConnectionState: (state: ConnectionState) => void;
   setMeetError: (error: MeetError | null) => void;
   setWaitingMessage: (message: string | null) => void;
+  setHostUserId: (userId: string | null) => void;
   isMuted: boolean;
   setIsMuted: (value: boolean) => void;
   isCameraOff: boolean;
@@ -128,6 +129,7 @@ export function useMeetSocket({
   setConnectionState,
   setMeetError,
   setWaitingMessage,
+  setHostUserId,
   isMuted,
   setIsMuted,
   isCameraOff,
@@ -203,6 +205,7 @@ export function useMeetSocket({
       clearReactions();
       setPendingUsers(new Map());
       setDisplayNames(new Map());
+      setHostUserId(null);
 
       try {
         audioProducerRef.current?.close();
@@ -258,6 +261,7 @@ export function useMeetSocket({
       setIsHandRaised,
       setIsScreenSharing,
       setPendingUsers,
+      setHostUserId,
       clearReactions,
       videoProducerRef,
       producerTransportDisconnectTimeoutRef,
@@ -1030,6 +1034,7 @@ export function useMeetSocket({
 
             if (response.status === "waiting") {
               setConnectionState("waiting");
+              setHostUserId(response.hostUserId ?? null);
               currentRoomIdRef.current = targetRoomId;
               resolve("waiting");
               return;
@@ -1079,6 +1084,7 @@ export function useMeetSocket({
               await flushPendingProducers();
 
               setConnectionState("joined");
+              setHostUserId(response.hostUserId ?? null);
               startProducerSync();
               void syncProducers();
               playNotificationSound("join");
@@ -1095,6 +1101,7 @@ export function useMeetSocket({
       sessionIdRef,
       setWaitingMessage,
       setConnectionState,
+      setHostUserId,
       currentRoomIdRef,
       deviceRef,
       createProducerTransport,
@@ -1203,10 +1210,31 @@ export function useMeetSocket({
 
             socket.on(
               "hostAssigned",
-              ({ roomId: eventRoomId }: { roomId?: string }) => {
+              ({
+                roomId: eventRoomId,
+                hostUserId,
+              }: {
+                roomId?: string;
+                hostUserId?: string | null;
+              }) => {
                 if (!isRoomEvent(eventRoomId)) return;
                 setIsAdmin(true);
+                setHostUserId(hostUserId ?? userId);
                 setWaitingMessage(null);
+              }
+            );
+
+            socket.on(
+              "hostChanged",
+              ({
+                roomId: eventRoomId,
+                hostUserId,
+              }: {
+                roomId?: string;
+                hostUserId?: string | null;
+              }) => {
+                if (!isRoomEvent(eventRoomId)) return;
+                setHostUserId(hostUserId ?? null);
               }
             );
 
@@ -1726,6 +1754,7 @@ export function useMeetSocket({
       setIsMuted,
       setIsScreenSharing,
       setIsHandRaised,
+      setHostUserId,
       setLocalStream,
       setMeetError,
       setPendingUsers,
