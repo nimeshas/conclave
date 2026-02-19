@@ -370,7 +370,7 @@ export function WhiteboardToolbar({
   const insertTools: ToolKind[] = ["text", "sticky"];
 
   return (
-    <Island padding={1}>
+    <Island padding={1} className="shrink-0">
       <div className="flex items-start gap-0.5">
         {pointerTools.map((id) => (
           <ToolButton

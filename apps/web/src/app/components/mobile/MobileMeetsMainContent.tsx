@@ -23,11 +23,11 @@ import MobileGridLayout from "./MobileGridLayout";
 import MobileJoinScreen from "./MobileJoinScreen";
 import MobileParticipantsPanel from "./MobileParticipantsPanel";
 import MobilePresentationLayout from "./MobilePresentationLayout";
+import MobileWhiteboardLayout from "./MobileWhiteboardLayout";
 import SystemAudioPlayers from "../SystemAudioPlayers";
 import { isSystemUserId } from "../../lib/utils";
 import { useApps } from "@conclave/apps-sdk";
 import DevPlaygroundLayout from "../DevPlaygroundLayout";
-import WhiteboardLayout from "../WhiteboardLayout";
 
 interface MobileMeetsMainContentProps {
   isJoined: boolean;
@@ -328,20 +328,7 @@ function MobileMeetsMainContent({
       {/* Main content area - with padding for controls */}
       <div className="flex-1 min-h-0 pb-20">
         {isWhiteboardActive ? (
-          <WhiteboardLayout
-            localStream={localStream}
-            isCameraOff={isCameraOff}
-            isMuted={isMuted}
-            isHandRaised={isHandRaised}
-            isGhost={ghostEnabled}
-            participants={participants}
-            userEmail={userEmail}
-            isMirrorCamera={isMirrorCamera}
-            activeSpeakerId={activeSpeakerId}
-            currentUserId={currentUserId}
-            audioOutputDeviceId={audioOutputDeviceId}
-            getDisplayName={resolveDisplayName}
-          />
+          <MobileWhiteboardLayout />
         ) : isDevPlaygroundEnabled && isDevPlaygroundActive ? (
           <DevPlaygroundLayout
             localStream={localStream}

@@ -157,7 +157,7 @@ export function WhiteboardWebApp() {
         {/* ── Floating UI overlay ── */}
         <div className="absolute inset-0 pointer-events-none p-3">
           {/* Top bar */}
-          <div className="flex items-start justify-between gap-3 w-full">
+          <div className="flex items-start justify-between gap-2 w-full">
             {/* Left: status */}
             <div className="pointer-events-auto flex items-center gap-2 shrink-0">
               <div
@@ -188,7 +188,7 @@ export function WhiteboardWebApp() {
             </div>
 
             {/* Center: toolbar */}
-            <div className="pointer-events-auto flex justify-center flex-1 min-w-0">
+            <div className="pointer-events-auto flex justify-center flex-1 min-w-0 overflow-x-auto">
               <WhiteboardToolbar
                 tool={tool}
                 onToolChange={setTool}
@@ -200,7 +200,7 @@ export function WhiteboardWebApp() {
             </div>
 
             {/* Right: spacer for balance */}
-            <div className="w-24 shrink-0" />
+            <div className="hidden sm:block w-24 shrink-0" />
           </div>
         </div>
 
@@ -240,7 +240,7 @@ export function WhiteboardWebApp() {
 
       {/* ── Bottom page bar ── */}
       <div
-        className="flex items-center gap-1 px-3 py-1.5 border-t border-white/5 shrink-0"
+        className="flex items-center gap-1 px-3 py-1.5 border-t border-white/5 shrink-0 overflow-x-auto"
         style={{ backgroundColor: "#1a1a1f" }}
       >
         {pages.map((page) => (
