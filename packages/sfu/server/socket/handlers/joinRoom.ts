@@ -103,8 +103,8 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
         const isReturningPrimaryHost =
           Boolean(room.hostUserKey) && room.hostUserKey === userKey;
         const isHostForExistingRoom =
-          hostRequested &&
-          (clientPolicy.allowHostJoin || isReturningPrimaryHost);
+          isReturningPrimaryHost ||
+          (hostRequested && clientPolicy.allowHostJoin);
         const isHost = createdRoom ? true : isHostForExistingRoom;
 
         if (isHost && !room.hostUserKey) {

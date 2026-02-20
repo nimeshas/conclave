@@ -108,6 +108,7 @@ interface MobileMeetsMainContentProps {
   onRetryMedia?: () => void;
   onTestSpeaker?: () => void;
   hostUserId: string | null;
+  isNetworkOffline: boolean;
 }
 
 function MobileMeetsMainContent({
@@ -185,6 +186,7 @@ function MobileMeetsMainContent({
   onRetryMedia,
   onTestSpeaker,
   hostUserId,
+  isNetworkOffline,
 }: MobileMeetsMainContentProps) {
   const { state: appsState, openApp, closeApp, setLocked, refreshState } = useApps();
   const isDevPlaygroundEnabled = process.env.NODE_ENV === "development";
@@ -279,7 +281,13 @@ function MobileMeetsMainContent({
 
   return (
     <div className="flex-1 flex flex-col bg-[#0d0e0d] overflow-hidden relative h-full">
-      {isJoined && <ConnectionBanner state={connectionState} compact />}
+      {isJoined && (
+        <ConnectionBanner
+          state={connectionState}
+          compact
+          isOffline={isNetworkOffline}
+        />
+      )}
       <SystemAudioPlayers
         participants={participants}
         audioOutputDeviceId={audioOutputDeviceId}

@@ -31,6 +31,35 @@ import {
 } from "../lib/utils";
 import MeetsErrorBanner from "./MeetsErrorBanner";
 
+const normalizeGuestName = (value: string): string =>
+  value.trim().replace(/\s+/g, " ");
+
+const createGuestId = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `guest-${crypto.randomUUID()}`;
+  }
+  return `guest-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const buildGuestUser = (
+  name: string,
+  existingUser?: { id?: string; email?: string | null }
+) => {
+  const existingGuestId =
+    typeof existingUser?.id === "string" && existingUser.id.startsWith("guest-")
+      ? existingUser.id
+      : undefined;
+  const existingEmail =
+    typeof existingUser?.email === "string" ? existingUser.email.trim() : "";
+  const id = existingGuestId || createGuestId();
+  const email = existingEmail || `${id}@guest.conclave`;
+  return {
+    id,
+    email,
+    name,
+  };
+};
+
 interface JoinScreenProps {
   roomId: string;
   onRoomIdChange: (id: string) => void;
@@ -99,11 +128,12 @@ function JoinScreen({
   const [isMicOn, setIsMicOn] = useState(false); // Start with mic off
   const isRoutedRoom = forceJoinOnly;
   const enforceShortCode = enableRoomRouting || forceJoinOnly;
+  const hasUserIdentity = Boolean(user?.id || user?.email);
   const [activeTab, setActiveTab] = useState<"new" | "join">(() =>
     isRoutedRoom ? "join" : "new"
   );
   const [phase, setPhase] = useState<"welcome" | "auth" | "join">(() => {
-    if (user && user.id && !user.id.startsWith("guest-")) {
+    if (hasUserIdentity) {
       return "join";
     }
     return "welcome";
@@ -143,12 +173,11 @@ function JoinScreen({
       return;
     }
 
-    if (user && !lastAppliedSessionUserIdRef.current) {
-      lastAppliedSessionUserIdRef.current = session.user.id;
-      return;
-    }
-
-    if (!user && lastAppliedSessionUserIdRef.current !== session.user.id) {
+    const isGuestIdentity = Boolean(user?.id?.startsWith("guest-"));
+    if (
+      (!user || isGuestIdentity) &&
+      lastAppliedSessionUserIdRef.current !== session.user.id
+    ) {
       const sessionUser = {
         id: session.user.id,
         email: session.user.email || "",
@@ -156,6 +185,11 @@ function JoinScreen({
       };
       onUserChange(sessionUser);
       setPhase("join");
+      lastAppliedSessionUserIdRef.current = session.user.id;
+      return;
+    }
+
+    if (user && !isGuestIdentity && !lastAppliedSessionUserIdRef.current) {
       lastAppliedSessionUserIdRef.current = session.user.id;
     }
   }, [session, user, onUserChange]);
@@ -165,13 +199,21 @@ function JoinScreen({
     const prevUser = prevUserRef.current;
     prevUserRef.current = user;
 
-    if (!prevUser && user && user.id && !user.id.startsWith("guest-")) {
+    if (!prevUser && user) {
       setPhase("join");
     }
     if (prevUser && !user) {
       setPhase("welcome");
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.id?.startsWith("guest-")) return;
+    if (guestName.trim().length > 0) return;
+    const nextName = normalizeGuestName(user.name || "");
+    if (!nextName) return;
+    setGuestName(nextName);
+  }, [guestName, user]);
 
   useEffect(() => {
     // Only capture media when in join phase
@@ -290,13 +332,12 @@ function JoinScreen({
   };
 
   const handleGuest = () => {
-    const guestUser = {
-      id: `guest-${Date.now()}`,
-      email: `guest-${guestName}@guest.com`,
-      name: guestName,
-    };
+    const normalizedGuestName = normalizeGuestName(guestName);
+    if (!normalizedGuestName) return;
+    const guestUser = buildGuestUser(normalizedGuestName, user);
     onUserChange(guestUser);
     onIsAdminChange(false);
+    setGuestName(normalizedGuestName);
     setPhase("join");
   };
 

@@ -120,6 +120,7 @@ interface MeetsMainContentProps {
   onOpenPopout?: () => void;
   onClosePopout?: () => void;
   hostUserId: string | null;
+  isNetworkOffline: boolean;
 }
 
 export default function MeetsMainContent({
@@ -206,6 +207,7 @@ export default function MeetsMainContent({
   onOpenPopout,
   onClosePopout,
   hostUserId,
+  isNetworkOffline,
 }: MeetsMainContentProps) {
   const { state: appsState, openApp, closeApp, setLocked, refreshState } = useApps();
   const isDevPlaygroundEnabled = process.env.NODE_ENV === "development";
@@ -292,7 +294,12 @@ export default function MeetsMainContent({
     <div
       className={`flex-1 flex flex-col overflow-hidden relative ${isJoined ? "p-4" : "p-0"}`}
     >
-      {isJoined && <ConnectionBanner state={connectionState} />}
+      {isJoined && (
+        <ConnectionBanner
+          state={connectionState}
+          isOffline={isNetworkOffline}
+        />
+      )}
       <SystemAudioPlayers
         participants={participants}
         audioOutputDeviceId={audioOutputDeviceId}

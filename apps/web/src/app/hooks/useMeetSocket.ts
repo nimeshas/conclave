@@ -1837,6 +1837,34 @@ export function useMeetSocket({
     handleReconnectRef.current = handleReconnect;
   }, [handleReconnect, handleReconnectRef]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleOnline = () => {
+      if (intentionalDisconnectRef.current) return;
+      if (!currentRoomIdRef.current) return;
+
+      const socket = socketRef.current;
+      if (socket?.connected) {
+        void syncProducers();
+        return;
+      }
+
+      handleReconnectRef.current?.();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [
+    currentRoomIdRef,
+    handleReconnectRef,
+    intentionalDisconnectRef,
+    socketRef,
+    syncProducers,
+  ]);
+
   const handleRedirectCallback = useCallback(
     async (newRoomId: string) => {
       console.log(`[Meets] Executing hard redirect to ${newRoomId}`);

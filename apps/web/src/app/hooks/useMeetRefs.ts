@@ -14,6 +14,23 @@ import type {
 } from "../lib/types";
 import { generateSessionId } from "../lib/utils";
 
+const SESSION_ID_STORAGE_KEY = "conclave:session-id";
+
+const getOrCreateSessionId = (): string => {
+  const fallback = generateSessionId();
+  if (typeof window === "undefined") return fallback;
+  try {
+    const existing = window.sessionStorage.getItem(SESSION_ID_STORAGE_KEY);
+    if (existing) {
+      return existing;
+    }
+    window.sessionStorage.setItem(SESSION_ID_STORAGE_KEY, fallback);
+    return fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export function useMeetRefs() {
   const socketRef = useRef<Socket | null>(null);
   const deviceRef = useRef<Device | null>(null);
@@ -53,7 +70,7 @@ export function useMeetRefs() {
   });
   const isChatOpenRef = useRef(false);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const sessionIdRef = useRef<string>(generateSessionId());
+  const sessionIdRef = useRef<string>(getOrCreateSessionId());
   const isHandRaisedRef = useRef(false);
   const producerTransportDisconnectTimeoutRef = useRef<number | null>(null);
   const consumerTransportDisconnectTimeoutRef = useRef<number | null>(null);

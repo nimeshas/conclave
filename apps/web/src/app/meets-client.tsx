@@ -42,6 +42,47 @@ import { usePrewarmSocket } from "./hooks/usePrewarmSocket";
 import { useSharedBrowser } from "./hooks/useSharedBrowser";
 import { sanitizeRoomCode } from "./lib/utils";
 
+type MeetUser = {
+  id?: string;
+  email?: string | null;
+  name?: string | null;
+};
+
+const GUEST_USER_STORAGE_KEY = "conclave:guest-user";
+
+const isGuestUser = (candidate?: MeetUser | null): candidate is MeetUser & { id: string } =>
+  Boolean(candidate?.id?.startsWith("guest-"));
+
+const parseGuestUser = (raw: string | null): MeetUser | null => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    const record = parsed as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id : undefined;
+    if (!id || !id.startsWith("guest-")) {
+      return null;
+    }
+    const email =
+      typeof record.email === "string"
+        ? record.email
+        : record.email === null
+          ? null
+          : undefined;
+    const name =
+      typeof record.name === "string"
+        ? record.name
+        : record.name === null
+          ? null
+          : undefined;
+    return { id, email, name };
+  } catch {
+    return null;
+  }
+};
+
 export type MeetsClientProps = {
   initialRoomId?: string;
   enableRoomRouting?: boolean;
@@ -83,14 +124,40 @@ export default function MeetsClient({
   getRoomsForRedirect,
   reactionAssets,
 }: MeetsClientProps) {
-  const [currentUser, setCurrentUser] = useState(user);
+  const [currentUser, setCurrentUser] = useState<MeetUser | undefined>(user);
   const [currentIsAdmin, setCurrentIsAdmin] = useState(isAdmin);
+  const [guestStorageReady, setGuestStorageReady] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [appsSocket, setAppsSocket] = useState<Socket | null>(null);
   const uploadAsset: AssetUploadHandler = useMemo(
     () => createAssetUploadHandler(),
     []
   );
+
+  useEffect(() => {
+    if (guestStorageReady || typeof window === "undefined") return;
+    if (!user) {
+      const storedGuest = parseGuestUser(
+        window.localStorage.getItem(GUEST_USER_STORAGE_KEY)
+      );
+      if (storedGuest) {
+        setCurrentUser(storedGuest);
+      }
+    }
+    setGuestStorageReady(true);
+  }, [guestStorageReady, user]);
+
+  useEffect(() => {
+    if (!guestStorageReady || typeof window === "undefined") return;
+    if (isGuestUser(currentUser)) {
+      window.localStorage.setItem(
+        GUEST_USER_STORAGE_KEY,
+        JSON.stringify(currentUser)
+      );
+      return;
+    }
+    window.localStorage.removeItem(GUEST_USER_STORAGE_KEY);
+  }, [currentUser, guestStorageReady]);
 
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
@@ -140,6 +207,8 @@ export default function MeetsClient({
     setIsBrowserAudioMuted,
     hostUserId,
     setHostUserId,
+    isNetworkOffline,
+    setIsNetworkOffline,
   } = useMeetState({ initialRoomId });
 
   const [browserAudioNeedsGesture, setBrowserAudioNeedsGesture] = useState(false);
@@ -207,6 +276,23 @@ export default function MeetsClient({
   const userEmail = currentUser?.name || currentUser?.email || currentUser?.id || "guest";
   const userKey = currentUser?.email || currentUser?.id || `guest-${sessionId}`;
   const userId = `${userKey}#${sessionId}`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const updateOfflineState = () => {
+      setIsNetworkOffline(!window.navigator.onLine);
+    };
+
+    updateOfflineState();
+    window.addEventListener("offline", updateOfflineState);
+    window.addEventListener("online", updateOfflineState);
+
+    return () => {
+      window.removeEventListener("offline", updateOfflineState);
+      window.removeEventListener("online", updateOfflineState);
+    };
+  }, [setIsNetworkOffline]);
 
   const {
     setDisplayNames,
@@ -764,6 +850,7 @@ export default function MeetsClient({
           onRetryMedia={handleRetryMedia}
           onTestSpeaker={handleTestSpeaker}
           hostUserId={hostUserId}
+          isNetworkOffline={isNetworkOffline}
         />
       </div>
     );
@@ -900,6 +987,7 @@ export default function MeetsClient({
         onOpenPopout={openPopout}
         onClosePopout={closePopout}
         hostUserId={hostUserId}
+        isNetworkOffline={isNetworkOffline}
       />
     </div>
   );
