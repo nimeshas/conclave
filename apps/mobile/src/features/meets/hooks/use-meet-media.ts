@@ -22,6 +22,14 @@ import {
   buildWebcamSingleLayerEncoding,
 } from "../video-encodings";
 
+const ANDROID_BLUETOOTH_CONNECT_PERMISSION =
+  "android.permission.BLUETOOTH_CONNECT" as Permission;
+
+const shouldRequestBluetoothConnectPermission = () =>
+  Platform.OS === "android" &&
+  typeof Platform.Version === "number" &&
+  Platform.Version >= 31;
+
 interface UseMeetMediaOptions {
   ghostEnabled: boolean;
   connectionState: string;
@@ -178,6 +186,9 @@ export function useMeetMedia({
       const permissions: Permission[] = [];
       if (options.audio) {
         permissions.push(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+        if (shouldRequestBluetoothConnectPermission()) {
+          permissions.push(ANDROID_BLUETOOTH_CONNECT_PERMISSION);
+        }
       }
       if (options.video) {
         permissions.push(PermissionsAndroid.PERMISSIONS.CAMERA);
@@ -187,15 +198,28 @@ export function useMeetMedia({
       }
 
       const results = await PermissionsAndroid.requestMultiple(permissions);
+      const audioGranted = options.audio
+        ? results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] ===
+          PermissionsAndroid.RESULTS.GRANTED
+        : false;
+      const videoGranted = options.video
+        ? results[PermissionsAndroid.PERMISSIONS.CAMERA] ===
+          PermissionsAndroid.RESULTS.GRANTED
+        : false;
+      const bluetoothStatus = results[ANDROID_BLUETOOTH_CONNECT_PERMISSION];
+      if (
+        options.audio &&
+        shouldRequestBluetoothConnectPermission() &&
+        bluetoothStatus &&
+        bluetoothStatus !== PermissionsAndroid.RESULTS.GRANTED
+      ) {
+        console.warn(
+          "[Permissions] Bluetooth permission denied; headset audio routing may be unavailable"
+        );
+      }
       return {
-        audio: options.audio
-          ? results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] ===
-            PermissionsAndroid.RESULTS.GRANTED
-          : false,
-        video: options.video
-          ? results[PermissionsAndroid.PERMISSIONS.CAMERA] ===
-            PermissionsAndroid.RESULTS.GRANTED
-          : false,
+        audio: audioGranted,
+        video: videoGranted,
       };
     },
     []

@@ -732,7 +732,7 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
       );
       callIdRef.current = activeCallId;
       startInCall();
-      setAudioRoute("speaker");
+      setAudioRoute("auto");
       cleanupHandlers = registerCallKeepHandlers(() => {
         handleLeave();
       });
