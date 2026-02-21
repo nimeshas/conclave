@@ -61,7 +61,7 @@ export const HOTKEYS: Record<HotkeyAction, HotkeyDefinition> = {
   toggleApps: {
     keys: "",
     label: "Apps",
-    description: "See different apps to be used",
+    description: "Open or close the apps panel.",
   },
   toggleMiniView: {
     keys: "Mod+M",
