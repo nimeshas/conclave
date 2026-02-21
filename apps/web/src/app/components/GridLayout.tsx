@@ -72,8 +72,7 @@ function GridLayout({
     if (count <= 9) return "grid-cols-3 grid-rows-3";
     if (count <= 12) return "grid-cols-4 grid-rows-3";
     if (count <= 16) return "grid-cols-4 grid-rows-4";
-    if (count <= 20) return "grid-cols-5 grid-rows-4";
-    return "grid-cols-5 auto-rows-fr";
+    return "grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 auto-rows-[minmax(150px,1fr)]";
   };
 
   const gridClass = getGridLayout(totalParticipants);
