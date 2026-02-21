@@ -109,6 +109,8 @@ export interface JoinRoomResponse {
   existingProducers: ProducerInfo[];
   status?: "waiting" | "joined";
   hostUserId?: string | null;
+  isLocked?: boolean;
+  isTtsDisabled?: boolean;
 }
 
 export interface TransportResponse {

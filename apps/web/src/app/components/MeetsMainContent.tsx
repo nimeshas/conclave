@@ -94,7 +94,9 @@ interface MeetsMainContentProps {
   resolveDisplayName: (userId: string) => string;
   reactions: ReactionEvent[];
   getRoomsForRedirect?: ParticipantsPanelGetRooms;
-  onUserChange: (user: { id: string; email: string; name: string } | null) => void;
+  onUserChange: (
+    user: { id: string; email: string; name: string } | null,
+  ) => void;
   onIsAdminChange: (isAdmin: boolean) => void;
   onPendingUserStale?: (userId: string) => void;
   isRoomLocked: boolean;
@@ -125,6 +127,7 @@ interface MeetsMainContentProps {
   onClosePopout?: () => void;
   hostUserId: string | null;
   isNetworkOffline: boolean;
+  isTtsDisabled: boolean;
 }
 
 export default function MeetsMainContent({
@@ -216,21 +219,31 @@ export default function MeetsMainContent({
   onClosePopout,
   hostUserId,
   isNetworkOffline,
+  isTtsDisabled,
 }: MeetsMainContentProps) {
-  const { state: appsState, openApp, closeApp, setLocked, refreshState } = useApps();
+  const {
+    state: appsState,
+    openApp,
+    closeApp,
+    setLocked,
+    refreshState,
+  } = useApps();
   const isDevPlaygroundEnabled = process.env.NODE_ENV === "development";
   const isWhiteboardActive = appsState.activeAppId === "whiteboard";
   const isDevPlaygroundActive = appsState.activeAppId === "dev-playground";
-  const handleOpenWhiteboard = useCallback(() => openApp("whiteboard"), [openApp]);
+  const handleOpenWhiteboard = useCallback(
+    () => openApp("whiteboard"),
+    [openApp],
+  );
   const handleCloseWhiteboard = useCallback(() => closeApp(), [closeApp]);
   const handleOpenDevPlayground = useCallback(
     () => openApp("dev-playground"),
-    [openApp]
+    [openApp],
   );
   const handleCloseDevPlayground = useCallback(() => closeApp(), [closeApp]);
   const handleToggleAppsLock = useCallback(
     () => setLocked(!appsState.locked),
-    [appsState.locked, setLocked]
+    [appsState.locked, setLocked],
   );
   useEffect(() => {
     if (connectionState === "joined") {
@@ -239,14 +252,14 @@ export default function MeetsMainContent({
   }, [connectionState, refreshState]);
   const participantsArray = useMemo(
     () => Array.from(participants.values()),
-    [participants]
+    [participants],
   );
   const nonSystemParticipants = useMemo(
     () =>
       participantsArray.filter(
-        (participant) => !isSystemUserId(participant.userId)
+        (participant) => !isSystemUserId(participant.userId),
       ),
-    [participantsArray]
+    [participantsArray],
   );
   const visibleParticipantCount = nonSystemParticipants.length;
   const handleToggleParticipants = useCallback(
@@ -258,12 +271,12 @@ export default function MeetsMainContent({
         }
         return next;
       }),
-    [isChatOpen, setIsParticipantsOpen, toggleChat]
+    [isChatOpen, setIsParticipantsOpen, toggleChat],
   );
 
   const handleCloseParticipants = useCallback(
     () => setIsParticipantsOpen(false),
-    [setIsParticipantsOpen]
+    [setIsParticipantsOpen],
   );
   const handleToggleChat = useCallback(() => {
     if (!isChatOpen && isParticipantsOpen) {
@@ -281,20 +294,22 @@ export default function MeetsMainContent({
       });
       onPendingUserStale?.(staleUserId);
     },
-    [onPendingUserStale, setPendingUsers]
+    [onPendingUserStale, setPendingUsers],
   );
   const hasBrowserAudio = useMemo(
     () =>
       participantsArray.some(
         (participant) =>
-          isSystemUserId(participant.userId) && Boolean(participant.audioStream)
+          isSystemUserId(participant.userId) &&
+          Boolean(participant.audioStream),
       ),
-    [participantsArray]
+    [participantsArray],
   );
   const browserVideoStream = useMemo(() => {
     const videoParticipant = participantsArray.find(
       (participant) =>
-        isBrowserVideoUserId(participant.userId) && participant.screenShareStream
+        isBrowserVideoUserId(participant.userId) &&
+        participant.screenShareStream,
     );
     return videoParticipant?.screenShareStream ?? null;
   }, [participantsArray]);
@@ -382,7 +397,9 @@ export default function MeetsMainContent({
         <BrowserLayout
           browserUrl={browserState.url || ""}
           noVncUrl={browserState.noVncUrl}
-          controllerName={resolveDisplayName(browserState.controllerUserId || "")}
+          controllerName={resolveDisplayName(
+            browserState.controllerUserId || "",
+          )}
           localStream={localStream}
           isCameraOff={isCameraOff}
           isHandRaised={isHandRaised}
@@ -503,8 +520,12 @@ export default function MeetsMainContent({
               onCloseWhiteboard={isAdmin ? handleCloseWhiteboard : undefined}
               isDevPlaygroundEnabled={isDevPlaygroundEnabled}
               isDevPlaygroundActive={isDevPlaygroundActive}
-              onOpenDevPlayground={isAdmin ? handleOpenDevPlayground : undefined}
-              onCloseDevPlayground={isAdmin ? handleCloseDevPlayground : undefined}
+              onOpenDevPlayground={
+                isAdmin ? handleOpenDevPlayground : undefined
+              }
+              onCloseDevPlayground={
+                isAdmin ? handleCloseDevPlayground : undefined
+              }
               isAppsLocked={appsState.locked}
               onToggleAppsLock={isAdmin ? handleToggleAppsLock : undefined}
               isPopoutActive={isPopoutActive}
@@ -604,9 +625,9 @@ export default function MeetsMainContent({
           getDisplayName={resolveDisplayName}
           onPendingUserStale={handlePendingUserStale}
           hostUserId={hostUserId}
+          isTtsDisabled={isTtsDisabled}
         />
       )}
-
 
       {isJoined && chatOverlayMessages.length > 0 && (
         <ChatOverlay

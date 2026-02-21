@@ -40,8 +40,22 @@ export const registerChatHandlers = (context: ConnectionContext): void => {
           return;
         }
 
+        if (
+          content.toLowerCase().startsWith("/tts ") ||
+          content.toLowerCase() === "/tts"
+        ) {
+          if (context.currentRoom.isTtsDisabled) {
+            respond(callback, {
+              error: "TTS is disabled by the host in this room.",
+            });
+            return;
+          }
+        }
+
         if (content.length > 1000) {
-          respond(callback, { error: "Message too long (max 1000 characters)" });
+          respond(callback, {
+            error: "Message too long (max 1000 characters)",
+          });
           return;
         }
 
