@@ -56,7 +56,7 @@ export const HOTKEYS: Record<HotkeyAction, HotkeyDefinition> = {
   toggleReactions: {
     keys: "",
     label: "Reactions",
-    description: "Panel to emote with multiple reations",
+    description: "Open or close the reactions panel.",
   },
   toggleApps: {
     keys: "",
