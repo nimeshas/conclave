@@ -50,7 +50,9 @@ type MeetUser = {
 
 const GUEST_USER_STORAGE_KEY = "conclave:guest-user";
 
-const isGuestUser = (candidate?: MeetUser | null): candidate is MeetUser & { id: string } =>
+const isGuestUser = (
+  candidate?: MeetUser | null,
+): candidate is MeetUser & { id: string } =>
   Boolean(candidate?.id?.startsWith("guest-"));
 
 const parseGuestUser = (raw: string | null): MeetUser | null => {
@@ -102,7 +104,7 @@ export type MeetsClientProps = {
     options?: {
       user?: { id?: string; email?: string | null; name?: string | null };
       isHost?: boolean;
-    }
+    },
   ) => Promise<{
     token: string;
     sfuUrl: string;
@@ -133,14 +135,14 @@ export default function MeetsClient({
   const [appsSocket, setAppsSocket] = useState<Socket | null>(null);
   const uploadAsset: AssetUploadHandler = useMemo(
     () => createAssetUploadHandler(),
-    []
+    [],
   );
 
   useEffect(() => {
     if (guestStorageReady || typeof window === "undefined") return;
     if (!user) {
       const storedGuest = parseGuestUser(
-        window.localStorage.getItem(GUEST_USER_STORAGE_KEY)
+        window.localStorage.getItem(GUEST_USER_STORAGE_KEY),
       );
       if (storedGuest) {
         setCurrentUser(storedGuest);
@@ -154,7 +156,7 @@ export default function MeetsClient({
     if (isGuestUser(currentUser)) {
       window.localStorage.setItem(
         GUEST_USER_STORAGE_KEY,
-        JSON.stringify(currentUser)
+        JSON.stringify(currentUser),
       );
       return;
     }
@@ -209,6 +211,8 @@ export default function MeetsClient({
     setIsNoGuests,
     isChatLocked,
     setIsChatLocked,
+    isTtsDisabled,
+    setIsTtsDisabled,
     isBrowserAudioMuted,
     setIsBrowserAudioMuted,
     hostUserId,
@@ -217,22 +221,30 @@ export default function MeetsClient({
     setIsNetworkOffline,
   } = useMeetState({ initialRoomId });
 
-  const [browserAudioNeedsGesture, setBrowserAudioNeedsGesture] = useState(false);
-  const [isBrowserServiceAvailable, setIsBrowserServiceAvailable] = useState(false);
+  const [browserAudioNeedsGesture, setBrowserAudioNeedsGesture] =
+    useState(false);
+  const [isBrowserServiceAvailable, setIsBrowserServiceAvailable] =
+    useState(false);
   const toggleMuteCommandRef = useRef<(() => void) | null>(null);
   const toggleCameraCommandRef = useRef<(() => void) | null>(null);
-  const setHandRaisedCommandRef = useRef<((raised: boolean) => void) | null>(null);
+  const setHandRaisedCommandRef = useRef<((raised: boolean) => void) | null>(
+    null,
+  );
   const leaveRoomCommandRef = useRef<(() => void) | null>(null);
 
   const handleToggleMuteCommand = useCallback(() => {
     toggleMuteCommandRef.current?.();
   }, []);
 
-  useHotkey(HOTKEYS.toggleMute.keys as RegisterableHotkey, handleToggleMuteCommand, {
-    enabled: connectionState === "joined",
-    requireReset: true,
-    ignoreInputs: true,
-  });
+  useHotkey(
+    HOTKEYS.toggleMute.keys as RegisterableHotkey,
+    handleToggleMuteCommand,
+    {
+      enabled: connectionState === "joined",
+      requireReset: true,
+      ignoreInputs: true,
+    },
+  );
 
   const handleToggleCameraCommand = useCallback(() => {
     toggleCameraCommandRef.current?.();
@@ -275,11 +287,12 @@ export default function MeetsClient({
   const isAdminFlag = Boolean(currentIsAdmin);
   const ghostEnabled = allowGhostMode && isAdminFlag && isGhostMode;
   const canSignOut = Boolean(
-    currentUser && !currentUser.id?.startsWith("guest-")
+    currentUser && !currentUser.id?.startsWith("guest-"),
   );
 
   const sessionId = refs.sessionIdRef.current;
-  const userEmail = currentUser?.name || currentUser?.email || currentUser?.id || "guest";
+  const userEmail =
+    currentUser?.name || currentUser?.email || currentUser?.id || "guest";
   const userKey = currentUser?.email || currentUser?.id || `guest-${sessionId}`;
   const userId = `${userKey}#${sessionId}`;
 
@@ -328,7 +341,7 @@ export default function MeetsClient({
         "Guest",
       email: currentUser?.email ?? null,
     }),
-    [userId, displayNameInput, currentUser]
+    [userId, displayNameInput, currentUser],
   );
 
   const { availableRooms, roomsStatus, refreshRooms } = useMeetRooms({
@@ -377,6 +390,7 @@ export default function MeetsClient({
     onSetHandRaised: handleSetHandRaisedCommand,
     onLeaveRoom: handleLeaveCommand,
     onTtsMessage: handleTtsMessage,
+    isTtsDisabled,
   });
 
   const {
@@ -471,7 +485,13 @@ export default function MeetsClient({
     localStream?.getTracks().forEach((track) => stopLocalTrack(track));
     setLocalStream(stream);
     setMeetError(null);
-  }, [localStream, requestMediaPermissions, setLocalStream, setMeetError, stopLocalTrack]);
+  }, [
+    localStream,
+    requestMediaPermissions,
+    setLocalStream,
+    setMeetError,
+    stopLocalTrack,
+  ]);
 
   const handleTestSpeaker = useCallback(() => {
     primeAudioOutput();
@@ -494,17 +514,25 @@ export default function MeetsClient({
   // Keyboard Shortcuts
   // ============================================
 
-  useHotkey(HOTKEYS.toggleCamera.keys as RegisterableHotkey, handleToggleCameraCommand, {
-    enabled: connectionState === "joined",
-    requireReset: true,
-    ignoreInputs: true,
-  });
+  useHotkey(
+    HOTKEYS.toggleCamera.keys as RegisterableHotkey,
+    handleToggleCameraCommand,
+    {
+      enabled: connectionState === "joined",
+      requireReset: true,
+      ignoreInputs: true,
+    },
+  );
 
-  useHotkey(HOTKEYS.toggleHandRaise.keys as RegisterableHotkey, toggleHandRaised, {
-    enabled: connectionState === "joined",
-    requireReset: true,
-    ignoreInputs: true,
-  });
+  useHotkey(
+    HOTKEYS.toggleHandRaise.keys as RegisterableHotkey,
+    toggleHandRaised,
+    {
+      enabled: connectionState === "joined",
+      requireReset: true,
+      ignoreInputs: true,
+    },
+  );
 
   useHotkey(HOTKEYS.toggleChat.keys as RegisterableHotkey, toggleChat, {
     enabled: connectionState === "joined",
@@ -512,11 +540,15 @@ export default function MeetsClient({
     ignoreInputs: true,
   });
 
-  useHotkey(HOTKEYS.toggleParticipants.keys as RegisterableHotkey, () => setIsParticipantsOpen((prev) => !prev), {
-    enabled: connectionState === "joined",
-    requireReset: true,
-    ignoreInputs: true,
-  });
+  useHotkey(
+    HOTKEYS.toggleParticipants.keys as RegisterableHotkey,
+    () => setIsParticipantsOpen((prev) => !prev),
+    {
+      enabled: connectionState === "joined",
+      requireReset: true,
+      ignoreInputs: true,
+    },
+  );
 
   const socket = useMeetSocket({
     refs,
@@ -547,6 +579,8 @@ export default function MeetsClient({
     setIsRoomLocked,
     setIsNoGuests,
     setIsChatLocked,
+    isTtsDisabled,
+    setIsTtsDisabled,
     setActiveScreenShareId,
     setVideoQuality,
     videoQualityRef: refs.videoQualityRef,
@@ -605,7 +639,7 @@ export default function MeetsClient({
     isAdmin: isAdminFlag,
   });
   const showBrowserControls = Boolean(
-    browserState?.active || isBrowserServiceAvailable
+    browserState?.active || isBrowserServiceAvailable,
   );
 
   const { mounted } = useMeetLifecycle({
@@ -668,9 +702,9 @@ export default function MeetsClient({
           setIsBrowserServiceAvailable(false);
           return;
         }
-        const data = (await response.json().catch(() => null)) as
-          | { ok?: boolean }
-          | null;
+        const data = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+        } | null;
         setIsBrowserServiceAvailable(Boolean(data?.ok));
       } catch (_error) {
         if (isMounted) {
@@ -734,25 +768,21 @@ export default function MeetsClient({
   });
 
   // Document PiP popout for mini meeting view
-  const {
-    isPopoutActive,
-    isPopoutSupported,
-    openPopout,
-    closePopout,
-  } = useMeetPopout({
-    isJoined: connectionState === "joined",
-    localStream,
-    participants,
-    activeSpeakerId: effectiveActiveSpeakerId,
-    currentUserId: userId,
-    isCameraOff,
-    isMuted,
-    userEmail,
-    getDisplayName: resolveDisplayName,
-    onToggleMute: toggleMute,
-    onToggleCamera: toggleCamera,
-    onLeave: leaveRoom,
-  });
+  const { isPopoutActive, isPopoutSupported, openPopout, closePopout } =
+    useMeetPopout({
+      isJoined: connectionState === "joined",
+      localStream,
+      participants,
+      activeSpeakerId: effectiveActiveSpeakerId,
+      currentUserId: userId,
+      isCameraOff,
+      isMuted,
+      userEmail,
+      getDisplayName: resolveDisplayName,
+      onToggleMute: toggleMute,
+      onToggleCamera: toggleCamera,
+      onLeave: leaveRoom,
+    });
 
   // ============================================
   // Render Helpers
@@ -792,7 +822,7 @@ export default function MeetsClient({
         waitingIntro={waitingIntro}
         roomId={roomId}
         isAdmin={isAdminFlag}
-      />
+      />,
     );
   }
 
@@ -814,7 +844,7 @@ export default function MeetsClient({
             }
             onPrimaryAction={
               meetError.code === "PERMISSION_DENIED" ||
-                meetError.code === "MEDIA_ERROR"
+              meetError.code === "MEDIA_ERROR"
                 ? handleRetryMedia
                 : undefined
             }
@@ -839,7 +869,7 @@ export default function MeetsClient({
           ghostEnabled={ghostEnabled}
           setIsGhostMode={setIsGhostMode}
           presentationStream={presentationStream}
-          presenterName={presenterName}
+          presenterName={presenterName || ""}
           localStream={localStream}
           isCameraOff={isCameraOff}
           isMuted={isMuted}
@@ -877,6 +907,7 @@ export default function MeetsClient({
           onUserChange={(user) => setCurrentUser(user ?? undefined)}
           onIsAdminChange={setCurrentIsAdmin}
           isRoomLocked={isRoomLocked}
+          isTtsDisabled={isTtsDisabled}
           onToggleLock={() => socket.toggleRoomLock(!isRoomLocked)}
           isChatLocked={isChatLocked}
           onToggleChatLock={() => socket.toggleChatLock(!isChatLocked)}
@@ -899,7 +930,7 @@ export default function MeetsClient({
           hostUserId={hostUserId}
           isNetworkOffline={isNetworkOffline}
         />
-      </div>
+      </div>,
     );
   }
 
@@ -945,7 +976,7 @@ export default function MeetsClient({
           }
           onPrimaryAction={
             meetError.code === "PERMISSION_DENIED" ||
-              meetError.code === "MEDIA_ERROR"
+            meetError.code === "MEDIA_ERROR"
               ? handleRetryMedia
               : undefined
           }
@@ -973,7 +1004,7 @@ export default function MeetsClient({
         ghostEnabled={ghostEnabled}
         setIsGhostMode={setIsGhostMode}
         presentationStream={presentationStream}
-        presenterName={presenterName}
+        presenterName={presenterName || ""}
         localStream={localStream}
         isCameraOff={isCameraOff}
         isMuted={isMuted}
@@ -1011,7 +1042,15 @@ export default function MeetsClient({
         getRoomsForRedirect={getRoomsForRedirect}
         onUserChange={(user) => setCurrentUser(user ?? undefined)}
         onIsAdminChange={setCurrentIsAdmin}
+        onPendingUserStale={(userId) => {
+          setPendingUsers((prev) => {
+            const next = new Map(prev);
+            next.delete(userId);
+            return next;
+          });
+        }}
         isRoomLocked={isRoomLocked}
+        isTtsDisabled={isTtsDisabled}
         onToggleLock={() => socket.toggleRoomLock(!isRoomLocked)}
         isNoGuests={isNoGuests}
         onToggleNoGuests={() => socket.toggleNoGuests(!isNoGuests)}
@@ -1040,6 +1079,6 @@ export default function MeetsClient({
         hostUserId={hostUserId}
         isNetworkOffline={isNetworkOffline}
       />
-    </div>
+    </div>,
   );
 }

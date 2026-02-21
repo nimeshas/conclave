@@ -10,23 +10,20 @@ export const registerAdminHandlers = (
 ): void => {
   const { socket, state } = context;
 
-  socket.on(
-    "kickUser",
-    ({ userId: targetId }: { userId: string }, cb) => {
-      if (!context.currentRoom) {
-        respond(cb, { error: "Room not found" });
-        return;
-      }
-      const target = context.currentRoom.getClient(targetId);
-      if (target) {
-        target.socket.emit("kicked");
-        target.socket.disconnect(true);
-        respond(cb, { success: true });
-      } else {
-        respond(cb, { error: "User not found" });
-      }
-    },
-  );
+  socket.on("kickUser", ({ userId: targetId }: { userId: string }, cb) => {
+    if (!context.currentRoom) {
+      respond(cb, { error: "Room not found" });
+      return;
+    }
+    const target = context.currentRoom.getClient(targetId);
+    if (target) {
+      target.socket.emit("kicked");
+      target.socket.disconnect(true);
+      respond(cb, { success: true });
+    } else {
+      respond(cb, { error: "User not found" });
+    }
+  });
 
   socket.on("closeRemoteProducer", ({ producerId }, cb) => {
     if (!context.currentRoom) {
@@ -275,5 +272,37 @@ export const registerAdminHandlers = (
       return;
     }
     respond(cb, { locked: context.currentRoom.isChatLocked });
+  });
+
+  socket.on("setTtsDisabled", ({ disabled }: { disabled: boolean }, cb) => {
+    if (!context.currentRoom) {
+      respond(cb, { error: "Room not found" });
+      return;
+    }
+
+    context.currentRoom.setTtsDisabled(disabled);
+    Logger.info(
+      `Room ${context.currentRoom.id} TTS ${disabled ? "disabled" : "enabled"} by admin`,
+    );
+
+    socket.to(context.currentRoom.channelId).emit("ttsDisabledChanged", {
+      disabled,
+      roomId: context.currentRoom.id,
+    });
+
+    socket.emit("ttsDisabledChanged", {
+      disabled,
+      roomId: context.currentRoom.id,
+    });
+
+    respond(cb, { success: true, disabled });
+  });
+
+  socket.on("getTtsDisabledStatus", (cb) => {
+    if (!context.currentRoom) {
+      respond(cb, { error: "Room not found" });
+      return;
+    }
+    respond(cb, { disabled: context.currentRoom.isTtsDisabled });
   });
 };

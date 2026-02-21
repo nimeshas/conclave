@@ -20,9 +20,7 @@ import type { RoomInfo } from "@/lib/sfu-types";
 import type { Participant } from "../lib/types";
 import { formatDisplayName, isSystemUserId } from "../lib/utils";
 
-export type ParticipantsPanelGetRooms = (
-  roomId: string,
-) => Promise<RoomInfo[]>;
+export type ParticipantsPanelGetRooms = (roomId: string) => Promise<RoomInfo[]>;
 
 interface ParticipantsPanelProps {
   participants: Map<string, Participant>;
@@ -40,6 +38,7 @@ interface ParticipantsPanelProps {
     isScreenSharing: boolean;
   };
   hostUserId?: string | null;
+  isTtsDisabled?: boolean;
 }
 
 function ParticipantsPanel({
@@ -55,12 +54,13 @@ function ParticipantsPanel({
   getRooms,
   localState,
   hostUserId,
+  isTtsDisabled,
 }: ParticipantsPanelProps & {
   socket: Socket | null;
   isAdmin?: boolean | null;
 }) {
   const participantsList = Array.from(participants.values()).filter(
-    (participant) => !isSystemUserId(participant.userId)
+    (participant) => !isSystemUserId(participant.userId),
   );
   const hasLocalEntry = participants.has(currentUserId);
   const localParticipant: Participant | null =
@@ -85,12 +85,12 @@ function ParticipantsPanel({
   const pendingList = pendingUsers ? Array.from(pendingUsers.entries()) : [];
   const [showRedirectModal, setShowRedirectModal] = useState(false);
   const [availableRooms, setAvailableRooms] = useState<RoomInfo[]>([]);
-  const [selectedUserForRedirect, setSelectedUserForRedirect] =
-    useState<string | null>(null);
+  const [selectedUserForRedirect, setSelectedUserForRedirect] = useState<
+    string | null
+  >(null);
   const [isPendingExpanded, setIsPendingExpanded] = useState(true);
   const filteredRooms = availableRooms.filter((room) => room.id !== roomId);
-  const effectiveHostUserId =
-    hostUserId ?? (isAdmin ? currentUserId : null);
+  const effectiveHostUserId = hostUserId ?? (isAdmin ? currentUserId : null);
 
   const getEmailFromUserId = (userId: string): string => {
     return userId.split("#")[0] || userId;
@@ -138,7 +138,7 @@ function ParticipantsPanel({
           setShowRedirectModal(false);
           setSelectedUserForRedirect(null);
         }
-      }
+      },
     );
   };
 
@@ -148,7 +148,7 @@ function ParticipantsPanel({
       style={{ fontFamily: "'PolySans Trial', sans-serif" }}
     >
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#FEFCD9]/10">
-        <span 
+        <span
           className="text-[10px] uppercase tracking-[0.12em] text-[#FEFCD9]/60 flex items-center gap-1.5"
           style={{ fontFamily: "'PolySans Mono', monospace" }}
         >
@@ -163,33 +163,64 @@ function ParticipantsPanel({
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
-      
+
       {isAdmin && (
-        <div className="px-3 py-2 flex gap-1.5 border-b border-[#FEFCD9]/5">
-          <button
-            onClick={() =>
-              socket?.emit("muteAll", (res: unknown) =>
-                console.log("Muted all:", res)
-              )
-            }
-            className="flex-1 text-[9px] py-1.5 rounded-md flex items-center justify-center gap-1 text-[#FEFCD9]/60 hover:text-[#F95F4A] hover:bg-[#F95F4A]/10 transition-all uppercase tracking-wider"
-            title="Mute all"
-          >
-            <MicOff className="w-3 h-3" />
-            Mute
-          </button>
-          <button
-            onClick={() =>
-              socket?.emit("closeAllVideo", (res: unknown) =>
-                console.log("Stopped all video:", res)
-              )
-            }
-            className="flex-1 text-[9px] py-1.5 rounded-md flex items-center justify-center gap-1 text-[#FEFCD9]/60 hover:text-[#F95F4A] hover:bg-[#F95F4A]/10 transition-all uppercase tracking-wider"
-            title="Stop all video"
-          >
-            <VideoOff className="w-3 h-3" />
-            Video
-          </button>
+        <div className="px-3 py-2 flex flex-col gap-2 border-b border-[#FEFCD9]/5">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] text-[#FEFCD9]/60 uppercase tracking-wider">
+              Disable Text-to-Speech
+            </span>
+            <button
+              onClick={() => {
+                socket?.emit(
+                  "setTtsDisabled",
+                  { disabled: !isTtsDisabled },
+                  (res: any) => {
+                    if (res.error)
+                      console.error("Failed to toggle TTS:", res.error);
+                  },
+                );
+              }}
+              className={`relative inline-flex h-3.5 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#F95F4A] focus:ring-offset-1 focus:ring-offset-[#0d0e0d] ${
+                isTtsDisabled ? "bg-[#F95F4A]" : "bg-[#FEFCD9]/20"
+              }`}
+              role="switch"
+              aria-checked={isTtsDisabled}
+            >
+              <span className="sr-only">Toggle Disable Text-to-Speech</span>
+              <span
+                className={`pointer-events-none inline-block h-2.5 w-2.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  isTtsDisabled ? "translate-x-1" : "-translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() =>
+                socket?.emit("muteAll", (res: unknown) =>
+                  console.log("Muted all:", res),
+                )
+              }
+              className="flex-1 text-[9px] py-1.5 rounded-md flex items-center justify-center gap-1 text-[#FEFCD9]/60 hover:text-[#F95F4A] hover:bg-[#F95F4A]/10 transition-all uppercase tracking-wider"
+              title="Mute all"
+            >
+              <MicOff className="w-3 h-3" />
+              Mute
+            </button>
+            <button
+              onClick={() =>
+                socket?.emit("closeAllVideo", (res: unknown) =>
+                  console.log("Stopped all video:", res),
+                )
+              }
+              className="flex-1 text-[9px] py-1.5 rounded-md flex items-center justify-center gap-1 text-[#FEFCD9]/60 hover:text-[#F95F4A] hover:bg-[#F95F4A]/10 transition-all uppercase tracking-wider"
+              title="Stop all video"
+            >
+              <VideoOff className="w-3 h-3" />
+              Video
+            </button>
+          </div>
         </div>
       )}
 
@@ -233,7 +264,7 @@ function ParticipantsPanel({
                             { userId },
                             (res: { success?: boolean; error?: string }) => {
                               if (res?.error) onPendingUserStale?.(userId);
-                            }
+                            },
                           )
                         }
                         className="px-2 py-1 text-[9px] text-green-400 hover:bg-green-500/20 rounded transition-all"
@@ -247,7 +278,7 @@ function ParticipantsPanel({
                             { userId },
                             (res: { success?: boolean; error?: string }) => {
                               if (res?.error) onPendingUserStale?.(userId);
-                            }
+                            },
                           )
                         }
                         className="px-2 py-1 text-[9px] text-red-400 hover:bg-red-500/20 rounded transition-all"
@@ -267,7 +298,7 @@ function ParticipantsPanel({
         {displayParticipants.map((p) => {
           const isMe = p.userId === currentUserId;
           const isHost = Boolean(
-            effectiveHostUserId && p.userId === effectiveHostUserId
+            effectiveHostUserId && p.userId === effectiveHostUserId,
           );
           const displayName = getDisplayName(p.userId);
           const userEmail = getEmailFromUserId(p.userId);
@@ -284,7 +315,8 @@ function ParticipantsPanel({
             >
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
                 <span className="truncate text-xs text-[#FEFCD9]/80">
-                  {displayName} {isMe && <span className="text-[#F95F4A]/60">(you)</span>}
+                  {displayName}{" "}
+                  {isMe && <span className="text-[#F95F4A]/60">(you)</span>}
                 </span>
                 {isHost && (
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-amber-200">
@@ -294,9 +326,7 @@ function ParticipantsPanel({
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
-                {p.isHandRaised && (
-                  <Hand className="w-3 h-3 text-amber-400" />
-                )}
+                {p.isHandRaised && <Hand className="w-3 h-3 text-amber-400" />}
                 {hasScreenShare && (
                   <Monitor className="w-3 h-3 text-green-500" />
                 )}
@@ -380,7 +410,9 @@ function ParticipantsPanel({
                   onClick={() => handleRedirect(room.id)}
                   className="w-full text-left px-3 py-2 rounded-md hover:bg-[#FEFCD9]/5 transition-all flex justify-between items-center"
                 >
-                  <span className="text-xs text-[#FEFCD9]/80 truncate">{room.id}</span>
+                  <span className="text-xs text-[#FEFCD9]/80 truncate">
+                    {room.id}
+                  </span>
                   <span className="text-[10px] text-[#FEFCD9]/40 flex items-center gap-1">
                     <Users className="w-3 h-3" />
                     {room.userCount}
