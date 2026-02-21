@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { Socket } from "socket.io-client";
 import type { Device } from "mediasoup-client";
 import {
@@ -32,7 +32,11 @@ import type {
   VideoQuality,
 } from "../lib/types";
 import type { ParticipantAction } from "../lib/participant-reducer";
-import { createMeetError, normalizeDisplayName } from "../lib/utils";
+import {
+  createMeetError,
+  isSystemUserId,
+  normalizeDisplayName,
+} from "../lib/utils";
 import { normalizeChatMessage } from "../lib/chat-commands";
 import {
   buildWebcamSimulcastEncodings,
@@ -155,6 +159,9 @@ export function useMeetSocket({
   onSocketReady,
   bypassMediaPermissions = false,
 }: UseMeetSocketOptions) {
+  const participantIdsRef = useRef<Set<string>>(new Set([userId]));
+  const LARGE_MEETING_SOUND_THRESHOLD = 30;
+
   const {
     socketRef,
     deviceRef,
@@ -183,6 +190,25 @@ export function useMeetSocket({
     producerSyncIntervalRef,
   } = refs;
 
+  useEffect(() => {
+    participantIdsRef.current = new Set([userId]);
+  }, [userId]);
+
+  const shouldPlayJoinLeaveSound = (
+    type: "join" | "leave",
+    targetUserId: string
+  ) => {
+    if (isSystemUserId(targetUserId)) return false;
+    const currentCount = participantIdsRef.current.size || 1;
+    if (type === "join") {
+      const projectedCount = participantIdsRef.current.has(targetUserId)
+        ? currentCount
+        : currentCount + 1;
+      return projectedCount < LARGE_MEETING_SOUND_THRESHOLD;
+    }
+    return currentCount < LARGE_MEETING_SOUND_THRESHOLD;
+  };
+
   const cleanupRoomResources = useCallback(
     (options?: { resetRoomId?: boolean }) => {
       const resetRoomId = options?.resetRoomId !== false;
@@ -208,6 +234,7 @@ export function useMeetSocket({
       setPendingUsers(new Map());
       setDisplayNames(new Map());
       setHostUserId(null);
+      participantIdsRef.current = new Set([userId]);
 
       try {
         audioProducerRef.current?.close();
@@ -269,6 +296,7 @@ export function useMeetSocket({
       producerTransportDisconnectTimeoutRef,
       consumerTransportDisconnectTimeoutRef,
       producerSyncIntervalRef,
+      userId,
     ]
   );
 
@@ -1298,7 +1326,16 @@ export function useMeetSocket({
                 if (joinedUserId === userId) {
                   return;
                 }
-                playNotificationSound("join");
+                const shouldPlaySound = shouldPlayJoinLeaveSound(
+                  "join",
+                  joinedUserId
+                );
+                if (shouldPlaySound) {
+                  playNotificationSound("join");
+                }
+                if (!isSystemUserId(joinedUserId)) {
+                  participantIdsRef.current.add(joinedUserId);
+                }
                 if (displayName) {
                   setDisplayNames((prev) => {
                     const next = new Map(prev);
@@ -1324,7 +1361,16 @@ export function useMeetSocket({
               ({ userId: leftUserId }: { userId: string }) => {
                 console.log("[Meets] User left:", leftUserId);
                 if (leftUserId !== userId) {
-                  playNotificationSound("leave");
+                  const shouldPlaySound = shouldPlayJoinLeaveSound(
+                    "leave",
+                    leftUserId
+                  );
+                  if (shouldPlaySound) {
+                    playNotificationSound("leave");
+                  }
+                }
+                if (!isSystemUserId(leftUserId)) {
+                  participantIdsRef.current.delete(leftUserId);
                 }
                 setDisplayNames((prev) => {
                   if (!prev.has(leftUserId)) return prev;
@@ -1369,11 +1415,15 @@ export function useMeetSocket({
               }) => {
                 if (!isRoomEvent(eventRoomId)) return;
                 const snapshot = new Map<string, string>();
+                const nextParticipantIds = new Set<string>([userId]);
                 (users || []).forEach(({ userId: snapshotUserId, displayName }) => {
                   if (displayName) {
                     snapshot.set(snapshotUserId, displayName);
                   }
                   if (snapshotUserId !== userId) {
+                    if (!isSystemUserId(snapshotUserId)) {
+                      nextParticipantIds.add(snapshotUserId);
+                    }
                     const leaveTimeout = leaveTimeoutsRef.current.get(
                       snapshotUserId
                     );
@@ -1387,6 +1437,7 @@ export function useMeetSocket({
                     });
                   }
                 });
+                participantIdsRef.current = nextParticipantIds;
                 setDisplayNames(snapshot);
               }
             );
