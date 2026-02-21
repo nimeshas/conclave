@@ -44,7 +44,7 @@ import { useMeetState } from "../hooks/use-meet-state";
 import { useMeetTts } from "../hooks/use-meet-tts";
 import { useDeviceLayout } from "../hooks/use-device-layout";
 import type { Participant } from "../types";
-import { createMeetError } from "../utils";
+import { createMeetError, isSystemUserId } from "../utils";
 import { getCachedUser, hydrateCachedUser, setCachedUser } from "../auth-session";
 import { CallScreen } from "./call-screen";
 import { ChatPanel } from "./chat-panel";
@@ -324,6 +324,28 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
     audioContextRef: refs.audioContextRef,
   });
 
+  const participantCount = useMemo(() => {
+    let count = 1; // include local user
+    participants.forEach((participant) => {
+      if (!isSystemUserId(participant.userId)) {
+        count += 1;
+      }
+    });
+    return count;
+  }, [participants]);
+
+  const suppressJoinLeaveSounds = participantCount >= 30;
+
+  const playNotificationSoundForEvents = useCallback(
+    (type: "join" | "leave" | "waiting") => {
+      if (suppressJoinLeaveSounds && (type === "join" || type === "leave")) {
+        return;
+      }
+      playNotificationSound(type);
+    },
+    [playNotificationSound, suppressJoinLeaveSounds]
+  );
+
   const isJoined = connectionState === "joined";
   const effectiveActiveSpeakerId = ttsSpeakerId ?? activeSpeakerId;
   const isLoading =
@@ -542,7 +564,7 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
     requestMediaPermissions,
     stopLocalTrack,
     handleLocalTrackEnded,
-    playNotificationSound,
+    playNotificationSound: playNotificationSoundForEvents,
     primeAudioOutput,
     addReaction,
     clearReactions,
@@ -657,8 +679,8 @@ export function MeetScreen({ initialRoomId }: { initialRoomId?: string } = {}) {
   const socketCleanupRef = useRef(socket.cleanup);
   socketCleanupRef.current = socket.cleanup;
 
-  const playNotificationSoundRef = useRef(playNotificationSound);
-  playNotificationSoundRef.current = playNotificationSound;
+  const playNotificationSoundRef = useRef(playNotificationSoundForEvents);
+  playNotificationSoundRef.current = playNotificationSoundForEvents;
 
   const stopScreenShareRef = useRef(stopScreenShare);
   stopScreenShareRef.current = stopScreenShare;
