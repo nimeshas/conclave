@@ -44,6 +44,14 @@ export function useMeetDisplayName({
     message: string;
   } | null>(null);
   const [isDisplayNameUpdating, setIsDisplayNameUpdating] = useState(false);
+  const preferredLocalDisplayName = useMemo(() => {
+    const sanitizedName = user?.name
+      ? sanitizeInstitutionDisplayName(user.name, user.email)
+      : "";
+    if (sanitizedName) return sanitizedName;
+    return user?.email?.trim() || "";
+  }, [user?.name, user?.email]);
+  const localIdFallbackName = useMemo(() => formatDisplayName(userId), [userId]);
 
   const resolveDisplayName = useCallback(
     (targetUserId: string) => {
@@ -54,9 +62,12 @@ export function useMeetDisplayName({
       if (storedName && storedName.trim()) {
         return storedName.trim();
       }
+      if (targetUserId === userId && preferredLocalDisplayName) {
+        return preferredLocalDisplayName;
+      }
       return formatDisplayName(targetUserId);
     },
-    [displayNames]
+    [displayNames, preferredLocalDisplayName, userId]
   );
 
   const currentUserDisplayName = resolveDisplayName(userId);
@@ -68,17 +79,17 @@ export function useMeetDisplayName({
   }, [displayNameInput, currentUserDisplayName]);
 
   useEffect(() => {
-    const baseName = user?.name
-      ? sanitizeInstitutionDisplayName(user.name, user.email)
-      : user?.email;
-    if (!baseName) return;
+    if (!preferredLocalDisplayName) return;
     setDisplayNames((prev) => {
-      if (prev.get(userId) === baseName) return prev;
+      const existing = prev.get(userId)?.trim();
+      const isGeneratedFallback =
+        existing !== undefined && existing === localIdFallbackName;
+      if (existing && !isGeneratedFallback) return prev;
       const next = new Map(prev);
-      next.set(userId, baseName);
+      next.set(userId, preferredLocalDisplayName);
       return next;
     });
-  }, [user?.name, user?.email, userId]);
+  }, [localIdFallbackName, preferredLocalDisplayName, userId]);
 
   useEffect(() => {
     setDisplayNameInput(currentUserDisplayName);
