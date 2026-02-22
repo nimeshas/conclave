@@ -17,6 +17,7 @@ import type {
   ConsumeResponse,
   HandRaisedNotification,
   HandRaisedSnapshot,
+  JoinMode,
   JoinRoomResponse,
   MeetError,
   ProducerInfo,
@@ -28,6 +29,10 @@ import type {
   TransportResponse,
   RestartIceResponse,
   VideoQuality,
+  WebinarConfigSnapshot,
+  WebinarFeedChangedNotification,
+  WebinarLinkResponse,
+  WebinarUpdateRequest,
 } from "../types";
 import type { ParticipantAction } from "../participant-reducer";
 import { createMeetError, isSystemUserId, normalizeDisplayName } from "../utils";
@@ -52,11 +57,16 @@ interface UseMeetSocketOptions {
     options?: {
       user?: { id?: string; email?: string | null; name?: string | null };
       isHost?: boolean;
+      joinMode?: JoinMode;
+      webinarSignedToken?: string;
     }
   ) => Promise<{
     token: string;
     sfuUrl: string;
   }>;
+  joinMode?: JoinMode;
+  webinarSignedToken?: string;
+  requestWebinarInviteCode?: () => Promise<string | null>;
   ghostEnabled: boolean;
   displayNameInput: string;
   localStream: MediaStream | null;
@@ -67,6 +77,11 @@ interface UseMeetSocketOptions {
   setConnectionState: (state: ConnectionState) => void;
   setMeetError: (error: MeetError | null) => void;
   setWaitingMessage: (message: string | null) => void;
+  setHostUserId: (userId: string | null) => void;
+  setWebinarConfig: React.Dispatch<
+    React.SetStateAction<WebinarConfigSnapshot | null>
+  >;
+  setWebinarRole: (role: "attendee" | "participant" | "host" | null) => void;
   isMuted: boolean;
   setIsMuted: (value: boolean) => void;
   isCameraOff: boolean;
@@ -121,6 +136,9 @@ export function useMeetSocket({
   user,
   userId,
   getJoinInfo,
+  joinMode = "meeting",
+  webinarSignedToken,
+  requestWebinarInviteCode,
   ghostEnabled,
   displayNameInput,
   localStream,
@@ -131,6 +149,9 @@ export function useMeetSocket({
   setConnectionState,
   setMeetError,
   setWaitingMessage,
+  setHostUserId,
+  setWebinarConfig,
+  setWebinarRole,
   isMuted,
   setIsMuted,
   isCameraOff,
@@ -161,6 +182,7 @@ export function useMeetSocket({
 }: UseMeetSocketOptions) {
   const participantIdsRef = useRef<Set<string>>(new Set([userId]));
   const isTtsDisabledRef = useRef(isTtsDisabled);
+  const lastAuthJoinModeRef = useRef<JoinMode | null>(null);
 
   const now = useCallback(
     () =>
@@ -248,6 +270,8 @@ export function useMeetSocket({
       clearReactions();
       setPendingUsers(new Map());
       setDisplayNames(new Map());
+      setHostUserId(null);
+      setWebinarRole(null);
       participantIdsRef.current = new Set([userId]);
 
       try {
@@ -293,6 +317,7 @@ export function useMeetSocket({
       setIsHandRaised(false);
       setIsNoGuests(false);
       setIsTtsDisabled(false);
+      setWebinarConfig(null);
       if (resetRoomId) {
         currentRoomIdRef.current = null;
       }
@@ -315,7 +340,10 @@ export function useMeetSocket({
       setIsNoGuests,
       setIsScreenSharing,
       setPendingUsers,
+      setHostUserId,
+      setWebinarRole,
       setIsTtsDisabled,
+      setWebinarConfig,
       clearReactions,
       stopLocalTrack,
       videoProducerRef,
@@ -344,6 +372,7 @@ export function useMeetSocket({
     onSocketReady?.(null);
     deviceRef.current = null;
     lastAuthIsHostRef.current = null;
+    lastAuthJoinModeRef.current = null;
 
     setConnectionState("disconnected");
     setLocalStream(null);
@@ -362,6 +391,7 @@ export function useMeetSocket({
     stopLocalTrack,
     producerSyncIntervalRef,
     lastAuthIsHostRef,
+    lastAuthJoinModeRef,
     onSocketReady,
   ]);
 
@@ -1064,7 +1094,12 @@ export function useMeetSocket({
     async (
       targetRoomId: string,
       stream: MediaStream | null,
-      joinOptions: { displayName?: string; isGhost: boolean }
+      joinOptions: {
+        displayName?: string;
+        isGhost: boolean;
+        joinMode: JoinMode;
+        webinarInviteCode?: string;
+      }
     ): Promise<"joined" | "waiting"> => {
       const socket = socketRef.current;
       if (!socket) throw new Error("Socket not connected");
@@ -1080,6 +1115,7 @@ export function useMeetSocket({
             sessionId: sessionIdRef.current,
             displayName: joinOptions.displayName,
             ghost: joinOptions.isGhost,
+            webinarInviteCode: joinOptions.webinarInviteCode,
           },
           async (response: JoinRoomResponse | { error: string }) => {
             if ("error" in response) {
@@ -1089,6 +1125,26 @@ export function useMeetSocket({
 
             if (response.status === "waiting") {
               setConnectionState("waiting");
+              setHostUserId(response.hostUserId ?? null);
+              setWebinarRole(response.webinarRole ?? null);
+              setWebinarConfig((previous) => ({
+                enabled: response.isWebinarEnabled ?? previous?.enabled ?? false,
+                publicAccess: previous?.publicAccess ?? false,
+                locked: response.webinarLocked ?? previous?.locked ?? false,
+                maxAttendees:
+                  response.webinarMaxAttendees ??
+                  previous?.maxAttendees ??
+                  500,
+                attendeeCount:
+                  response.webinarAttendeeCount ??
+                  previous?.attendeeCount ??
+                  0,
+                requiresInviteCode:
+                  response.webinarRequiresInviteCode ??
+                  previous?.requiresInviteCode ??
+                  false,
+                feedMode: previous?.feedMode ?? "active-speaker",
+              }));
               currentRoomIdRef.current = targetRoomId;
               setIsTtsDisabled(response.isTtsDisabled ?? false);
               resolve("waiting");
@@ -1104,6 +1160,26 @@ export function useMeetSocket({
               currentRoomIdRef.current = targetRoomId;
               setIsRoomLocked(response.isLocked ?? false);
               setIsTtsDisabled(response.isTtsDisabled ?? false);
+              setHostUserId(response.hostUserId ?? null);
+              setWebinarRole(response.webinarRole ?? null);
+              setWebinarConfig((previous) => ({
+                enabled: response.isWebinarEnabled ?? previous?.enabled ?? false,
+                publicAccess: previous?.publicAccess ?? false,
+                locked: response.webinarLocked ?? previous?.locked ?? false,
+                maxAttendees:
+                  response.webinarMaxAttendees ??
+                  previous?.maxAttendees ??
+                  500,
+                attendeeCount:
+                  response.webinarAttendeeCount ??
+                  previous?.attendeeCount ??
+                  0,
+                requiresInviteCode:
+                  response.webinarRequiresInviteCode ??
+                  previous?.requiresInviteCode ??
+                  false,
+                feedMode: previous?.feedMode ?? "active-speaker",
+              }));
 
               // Use pre-warmed Device if available, otherwise dynamic import
               const DeviceClass = prewarm?.Device
@@ -1119,7 +1195,10 @@ export function useMeetSocket({
                 `[Meets] Device loaded in ${(now() - joinedTime).toFixed(0)}ms`
               );
 
-              const shouldProduce = !!stream && !joinOptions.isGhost;
+              const shouldProduce =
+                !!stream &&
+                !joinOptions.isGhost &&
+                joinOptions.joinMode !== "webinar_attendee";
 
               await Promise.all([
                 shouldProduce
@@ -1159,6 +1238,9 @@ export function useMeetSocket({
       setConnectionState,
       setIsRoomLocked,
       setIsTtsDisabled,
+      setHostUserId,
+      setWebinarRole,
+      setWebinarConfig,
       currentRoomIdRef,
       deviceRef,
       createProducerTransport,
@@ -1181,8 +1263,12 @@ export function useMeetSocket({
         (async () => {
           try {
             const desiredIsHost = options?.isHost ?? isAdmin;
+            const desiredJoinMode = joinMode;
             if (socketRef.current?.connected) {
-              if (lastAuthIsHostRef.current === desiredIsHost) {
+              if (
+                lastAuthIsHostRef.current === desiredIsHost &&
+                lastAuthJoinModeRef.current === desiredJoinMode
+              ) {
                 resolve(socketRef.current);
                 return;
               }
@@ -1203,14 +1289,20 @@ export function useMeetSocket({
               ? Promise.resolve({ io: prewarm.io })
               : import("socket.io-client");
 
-            const cachedToken = prewarm?.getCachedToken?.(roomIdForJoin);
-            const isHost = desiredIsHost;
+            const cachedToken =
+              desiredJoinMode === "meeting"
+                ? prewarm?.getCachedToken?.(roomIdForJoin)
+                : null;
+            const isHost =
+              desiredJoinMode === "webinar_attendee" ? false : desiredIsHost;
             const tokenPromise = cachedToken
               ? Promise.resolve(cachedToken)
               : getJoinInfo(roomIdForJoin, sessionIdRef.current, {
-                user,
-                isHost,
-              });
+                  user,
+                  isHost,
+                  joinMode: desiredJoinMode,
+                  webinarSignedToken,
+                });
 
             const [{ token, sfuUrl }, socketIoModule] = await Promise.all([
               tokenPromise,
@@ -1257,6 +1349,7 @@ export function useMeetSocket({
                 `[Meets] Connected to SFU in ${(now() - joinStartTime).toFixed(0)}ms`
               );
               lastAuthIsHostRef.current = isHost;
+              lastAuthJoinModeRef.current = desiredJoinMode;
               setConnectionState("connected");
               setMeetError(null);
               reconnectAttemptsRef.current = 0;
@@ -1724,14 +1817,23 @@ export function useMeetSocket({
               const joinOptions = joinOptionsRef.current;
               let stream = localStreamRef.current;
 
-              if (!stream && !joinOptions.isGhost) {
+              if (
+                !stream &&
+                !joinOptions.isGhost &&
+                joinOptions.joinMode !== "webinar_attendee"
+              ) {
                 stream = await requestMediaPermissions();
                 if (stream) {
                   localStreamRef.current = stream;
                   setLocalStream(stream);
                 }
               }
-              if (currentRoomIdRef.current && (stream || joinOptions.isGhost)) {
+              if (
+                currentRoomIdRef.current &&
+                (stream ||
+                  joinOptions.isGhost ||
+                  joinOptions.joinMode === "webinar_attendee")
+              ) {
                 joinRoomInternal(
                   currentRoomIdRef.current,
                   stream,
@@ -1744,6 +1846,7 @@ export function useMeetSocket({
                     roomId: currentRoomIdRef.current,
                     hasStream: !!localStreamRef.current,
                     isGhost: joinOptionsRef.current.isGhost,
+                    joinMode: joinOptionsRef.current.joinMode,
                   }
                 );
               }
@@ -1835,6 +1938,49 @@ export function useMeetSocket({
               }
             );
 
+            socket.on(
+              "webinar:configChanged",
+              (
+                config: WebinarConfigSnapshot & {
+                  roomId?: string;
+                }
+              ) => {
+                if (!isRoomEvent(config.roomId)) return;
+                setWebinarConfig(config);
+              }
+            );
+
+            socket.on(
+              "webinar:attendeeCountChanged",
+              ({
+                attendeeCount,
+                maxAttendees,
+                roomId: eventRoomId,
+              }: {
+                attendeeCount: number;
+                maxAttendees: number;
+                roomId?: string;
+              }) => {
+                if (!isRoomEvent(eventRoomId)) return;
+                setWebinarConfig((previous) => ({
+                  enabled: previous?.enabled ?? false,
+                  publicAccess: previous?.publicAccess ?? false,
+                  locked: previous?.locked ?? false,
+                  maxAttendees: maxAttendees ?? previous?.maxAttendees ?? 500,
+                  attendeeCount: attendeeCount ?? previous?.attendeeCount ?? 0,
+                  requiresInviteCode: previous?.requiresInviteCode ?? false,
+                  feedMode: previous?.feedMode ?? "active-speaker",
+                }));
+              }
+            );
+
+            socket.on(
+              "webinar:feedChanged",
+              (_payload: WebinarFeedChangedNotification) => {
+                void syncProducers();
+              }
+            );
+
             socketRef.current = socket;
             onSocketReady?.(socket);
           } catch (err) {
@@ -1864,6 +2010,7 @@ export function useMeetSocket({
       handleReconnectRef,
       getJoinInfo,
       isAdmin,
+      joinMode,
       setIsAdmin,
       isRoomEvent,
       joinOptionsRef,
@@ -1887,16 +2034,20 @@ export function useMeetSocket({
       setLocalStream,
       setMeetError,
       setPendingUsers,
+      setWebinarConfig,
       setWaitingMessage,
       setVideoQuality,
       socketRef,
       stopLocalTrack,
+      syncProducers,
       requestMediaPermissions,
       updateVideoQualityRef,
       user,
       userId,
+      webinarSignedToken,
       onTtsMessage,
       lastAuthIsHostRef,
+      lastAuthJoinModeRef,
       onSocketReady,
     ]
   );
@@ -1935,14 +2086,23 @@ export function useMeetSocket({
 
           const joinOptions = joinOptionsRef.current;
           let stream = localStreamRef.current || localStream;
-          if (!stream && !joinOptions.isGhost) {
+          if (
+            !stream &&
+            !joinOptions.isGhost &&
+            joinOptions.joinMode !== "webinar_attendee"
+          ) {
             stream = await requestMediaPermissions();
             if (stream) {
               localStreamRef.current = stream;
               setLocalStream(stream);
             }
           }
-          if (reconnectRoomId && (stream || joinOptions.isGhost)) {
+          if (
+            reconnectRoomId &&
+            (stream ||
+              joinOptions.isGhost ||
+              joinOptions.joinMode === "webinar_attendee")
+          ) {
             await joinRoomInternal(reconnectRoomId, stream, joinOptions);
           }
           return;
@@ -2013,23 +2173,34 @@ export function useMeetSocket({
       primeAudioOutput();
       refs.intentionalDisconnectRef.current = false;
       setRoomId(targetRoomId);
+      if (joinMode === "webinar_attendee") {
+        setIsAdmin(false);
+      }
       const normalizedDisplayName = normalizeDisplayName(displayNameInput);
       const isHost = options?.isHost ?? isAdmin;
-      const joinOptions = {
+      const joinOptions: {
+        displayName?: string;
+        isGhost: boolean;
+        joinMode: JoinMode;
+        webinarInviteCode?: string;
+      } = {
         displayName: isHost ? normalizedDisplayName || undefined : undefined,
         isGhost: ghostEnabled,
+        joinMode,
       };
       joinOptionsRef.current = joinOptions;
+      const shouldRequestMedia =
+        !joinOptions.isGhost && joinOptions.joinMode !== "webinar_attendee";
 
       try {
         const [, stream] = await Promise.all([
           connectSocket(targetRoomId, options),
-          joinOptions.isGhost
-            ? Promise.resolve(null)
-            : requestMediaPermissions(),
+          shouldRequestMedia
+            ? requestMediaPermissions()
+            : Promise.resolve(null),
         ]);
 
-        if (!joinOptions.isGhost && !stream) {
+        if (shouldRequestMedia && !stream) {
           setConnectionState("error");
           return;
         }
@@ -2037,7 +2208,35 @@ export function useMeetSocket({
         localStreamRef.current = stream;
         setLocalStream(stream);
 
-        await joinRoomInternal(targetRoomId, stream, joinOptions);
+        try {
+          await joinRoomInternal(targetRoomId, stream, joinOptions);
+        } catch (joinError) {
+          const joinMessage =
+            joinError instanceof Error
+              ? joinError.message
+              : String(joinError ?? "");
+          const shouldPromptInviteCode =
+            joinOptions.joinMode === "webinar_attendee" &&
+            !joinOptions.webinarInviteCode &&
+            /invite code/i.test(joinMessage) &&
+            typeof requestWebinarInviteCode === "function";
+
+          if (!shouldPromptInviteCode) {
+            throw joinError;
+          }
+
+          const inviteCode = await requestWebinarInviteCode();
+          if (!inviteCode || !inviteCode.trim()) {
+            throw joinError;
+          }
+
+          const webinarJoinOptions = {
+            ...joinOptions,
+            webinarInviteCode: inviteCode.trim(),
+          };
+          joinOptionsRef.current = webinarJoinOptions;
+          await joinRoomInternal(targetRoomId, stream, webinarJoinOptions);
+        }
       } catch (err) {
         console.error("[Meets] Error joining room:", err);
         const stream = localStreamRef.current;
@@ -2053,12 +2252,15 @@ export function useMeetSocket({
       connectSocket,
       displayNameInput,
       ghostEnabled,
+      joinMode,
       isAdmin,
+      setIsAdmin,
       joinOptionsRef,
       joinRoomInternal,
       localStreamRef,
       primeAudioOutput,
       requestMediaPermissions,
+      requestWebinarInviteCode,
       refs.abortControllerRef,
       refs.intentionalDisconnectRef,
       setConnectionState,
@@ -2180,6 +2382,98 @@ export function useMeetSocket({
     [socketRef]
   );
 
+  const getWebinarConfig = useCallback(
+    (): Promise<WebinarConfigSnapshot | null> => {
+      const socket = socketRef.current;
+      if (!socket) return Promise.resolve(null);
+
+      return new Promise((resolve) => {
+        socket.emit(
+          "webinar:getConfig",
+          (response: WebinarConfigSnapshot | { error: string }) => {
+            if ("error" in response) {
+              console.error("[Meets] Failed to fetch webinar config:", response.error);
+              resolve(null);
+              return;
+            }
+            setWebinarConfig(response);
+            resolve(response);
+          }
+        );
+      });
+    },
+    [setWebinarConfig, socketRef]
+  );
+
+  const updateWebinarConfig = useCallback(
+    (update: WebinarUpdateRequest): Promise<WebinarConfigSnapshot | null> => {
+      const socket = socketRef.current;
+      if (!socket) return Promise.resolve(null);
+
+      return new Promise((resolve) => {
+        socket.emit(
+          "webinar:updateConfig",
+          update,
+          (
+            response:
+              | { success: boolean; config: WebinarConfigSnapshot }
+              | { error: string }
+          ) => {
+            if ("error" in response) {
+              console.error("[Meets] Failed to update webinar config:", response.error);
+              resolve(null);
+              return;
+            }
+            setWebinarConfig(response.config);
+            resolve(response.config);
+          }
+        );
+      });
+    },
+    [setWebinarConfig, socketRef]
+  );
+
+  const rotateWebinarLink = useCallback((): Promise<WebinarLinkResponse | null> => {
+    const socket = socketRef.current;
+    if (!socket) return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      socket.emit(
+        "webinar:rotateLink",
+        (response: WebinarLinkResponse | { error: string }) => {
+          if ("error" in response) {
+            console.error("[Meets] Failed to rotate webinar link:", response.error);
+            resolve(null);
+            return;
+          }
+          resolve(response);
+        }
+      );
+    });
+  }, [socketRef]);
+
+  const generateWebinarLink = useCallback(
+    (): Promise<WebinarLinkResponse | null> => {
+      const socket = socketRef.current;
+      if (!socket) return Promise.resolve(null);
+
+      return new Promise((resolve) => {
+        socket.emit(
+          "webinar:generateLink",
+          (response: WebinarLinkResponse | { error: string }) => {
+            if ("error" in response) {
+              console.error("[Meets] Failed to generate webinar link:", response.error);
+              resolve(null);
+              return;
+            }
+            resolve(response);
+          }
+        );
+      });
+    },
+    [socketRef]
+  );
+
   const admitUser = useCallback(
     (targetUserId: string): Promise<boolean> => {
       const socket = socketRef.current;
@@ -2236,6 +2530,10 @@ export function useMeetSocket({
     toggleChatLock,
     toggleNoGuests,
     toggleTtsDisabled,
+    getWebinarConfig,
+    updateWebinarConfig,
+    rotateWebinarLink,
+    generateWebinarLink,
     admitUser,
     rejectUser,
   };

@@ -24,6 +24,7 @@ import {
 
 interface UseMeetMediaOptions {
   ghostEnabled: boolean;
+  isObserverMode?: boolean;
   connectionState: string;
   isMuted: boolean;
   setIsMuted: (value: boolean) => void;
@@ -57,6 +58,7 @@ interface UseMeetMediaOptions {
 
 export function useMeetMedia({
   ghostEnabled,
+  isObserverMode = false,
   connectionState,
   isMuted,
   setIsMuted,
@@ -555,7 +557,7 @@ export function useMeetMedia({
   }, [updateVideoQuality]);
 
   const toggleMute = useCallback(async () => {
-    if (ghostEnabled) return;
+    if (ghostEnabled || isObserverMode) return;
     const previousMuted = isMuted;
     const nextMuted = !previousMuted;
     let producer = audioProducerRef.current;
@@ -688,6 +690,7 @@ export function useMeetMedia({
     }
   }, [
     ghostEnabled,
+    isObserverMode,
     isMuted,
     selectedAudioInputDeviceId,
     handleLocalTrackEnded,
@@ -704,7 +707,7 @@ export function useMeetMedia({
   ]);
 
   useEffect(() => {
-    if (ghostEnabled) return;
+    if (ghostEnabled || isObserverMode) return;
     if (connectionState !== "joined") return;
     if (isMuted) return;
     if (audioProducerRef.current) return;
@@ -805,6 +808,7 @@ export function useMeetMedia({
     };
   }, [
     ghostEnabled,
+    isObserverMode,
     connectionState,
     isMuted,
     selectedAudioInputDeviceId,
@@ -821,7 +825,7 @@ export function useMeetMedia({
   ]);
 
   const toggleCamera = useCallback(async () => {
-    if (ghostEnabled) return;
+    if (ghostEnabled || isObserverMode) return;
     const producer = videoProducerRef.current;
 
     if (producer) {
@@ -965,6 +969,7 @@ export function useMeetMedia({
     }
   }, [
     ghostEnabled,
+    isObserverMode,
     isCameraOff,
     handleLocalTrackEnded,
     stopLocalTrack,
@@ -978,7 +983,7 @@ export function useMeetMedia({
   ]);
 
   useEffect(() => {
-    if (ghostEnabled) return;
+    if (ghostEnabled || isObserverMode) return;
     if (connectionState !== "joined") return;
     if (isCameraOff) return;
     if (videoProducerRef.current) return;
@@ -1094,6 +1099,7 @@ export function useMeetMedia({
     };
   }, [
     ghostEnabled,
+    isObserverMode,
     connectionState,
     isCameraOff,
     handleLocalTrackEnded,
@@ -1108,7 +1114,7 @@ export function useMeetMedia({
   ]);
 
   const toggleScreenShare = useCallback(async () => {
-    if (ghostEnabled) return;
+    if (ghostEnabled || isObserverMode) return;
     if (isScreenSharing) {
       const producer = screenProducerRef.current;
       if (producer) {
@@ -1191,6 +1197,7 @@ export function useMeetMedia({
     }
   }, [
     ghostEnabled,
+    isObserverMode,
     isScreenSharing,
     activeScreenShareId,
     setIsScreenSharing,

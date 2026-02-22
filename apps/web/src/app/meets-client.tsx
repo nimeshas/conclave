@@ -41,6 +41,7 @@ import { useIsMobile } from "./hooks/useIsMobile";
 import { usePrewarmSocket } from "./hooks/usePrewarmSocket";
 import { useSharedBrowser } from "./hooks/useSharedBrowser";
 import { isSystemUserId, sanitizeRoomCode } from "./lib/utils";
+import type { JoinMode } from "./lib/types";
 
 type MeetUser = {
   id?: string;
@@ -104,11 +105,17 @@ export type MeetsClientProps = {
     options?: {
       user?: { id?: string; email?: string | null; name?: string | null };
       isHost?: boolean;
+      joinMode?: JoinMode;
+      webinarSignedToken?: string;
     },
   ) => Promise<{
     token: string;
     sfuUrl: string;
   }>;
+  joinMode?: JoinMode;
+  webinarSignedToken?: string;
+  autoJoinOnMount?: boolean;
+  hideJoinUI?: boolean;
   getRooms?: () => Promise<RoomInfo[]>;
   getRoomsForRedirect?: ParticipantsPanelGetRooms;
   reactionAssets?: string[];
@@ -124,6 +131,10 @@ export default function MeetsClient({
   user,
   isAdmin = false,
   getJoinInfo,
+  joinMode = "meeting",
+  webinarSignedToken,
+  autoJoinOnMount = false,
+  hideJoinUI = false,
   getRooms,
   getRoomsForRedirect,
   reactionAssets,
@@ -162,6 +173,11 @@ export default function MeetsClient({
     }
     window.localStorage.removeItem(GUEST_USER_STORAGE_KEY);
   }, [currentUser, guestStorageReady]);
+
+  const clearGuestStorage = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(GUEST_USER_STORAGE_KEY);
+  }, []);
 
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
@@ -219,6 +235,12 @@ export default function MeetsClient({
     setHostUserId,
     isNetworkOffline,
     setIsNetworkOffline,
+    webinarConfig,
+    setWebinarConfig,
+    webinarRole,
+    setWebinarRole,
+    webinarLink,
+    setWebinarLink,
   } = useMeetState({ initialRoomId });
 
   const [browserAudioNeedsGesture, setBrowserAudioNeedsGesture] =
@@ -271,6 +293,12 @@ export default function MeetsClient({
     setRoomId(sanitized);
   }, [enableRoomRouting, forceJoinOnly, roomId, setRoomId]);
 
+  useEffect(() => {
+    if (!autoJoinOnMount) return;
+    if (!roomId || roomId.trim().length === 0) return;
+    refs.shouldAutoJoinRef.current = true;
+  }, [autoJoinOnMount, roomId, refs.shouldAutoJoinRef]);
+
   const {
     videoQuality,
     setVideoQuality,
@@ -285,10 +313,10 @@ export default function MeetsClient({
   } = useMeetMediaSettings({ videoQualityRef: refs.videoQualityRef });
 
   const isAdminFlag = Boolean(currentIsAdmin);
+  const isWebinarAttendee =
+    joinMode === "webinar_attendee" || webinarRole === "attendee";
   const ghostEnabled = allowGhostMode && isAdminFlag && isGhostMode;
-  const canSignOut = Boolean(
-    currentUser && !currentUser.id?.startsWith("guest-"),
-  );
+  const canSignOut = Boolean(currentUser?.id || currentUser?.email);
 
   const sessionId = refs.sessionIdRef.current;
   const userEmail =
@@ -359,6 +387,7 @@ export default function MeetsClient({
     userId,
     socketRef: refs.socketRef,
     ghostEnabled,
+    isObserverMode: isWebinarAttendee,
     reactionAssets,
   });
 
@@ -381,6 +410,7 @@ export default function MeetsClient({
   } = useMeetChat({
     socketRef: refs.socketRef,
     ghostEnabled,
+    isObserverMode: isWebinarAttendee,
     isChatLocked,
     isAdmin: isAdminFlag,
     isMuted,
@@ -408,6 +438,7 @@ export default function MeetsClient({
     primeAudioOutput,
   } = useMeetMedia({
     ghostEnabled,
+    isObserverMode: isWebinarAttendee,
     connectionState,
     isMuted,
     setIsMuted,
@@ -503,6 +534,7 @@ export default function MeetsClient({
     setIsHandRaised,
     isHandRaisedRef: refs.isHandRaisedRef,
     ghostEnabled,
+    isObserverMode: isWebinarAttendee,
     socketRef: refs.socketRef,
   });
 
@@ -556,6 +588,14 @@ export default function MeetsClient({
     ignoreInputs: true,
   });
 
+  const requestWebinarInviteCode = useCallback(async () => {
+    if (typeof window === "undefined") return null;
+    const value = window.prompt("Enter webinar invite code");
+    if (!value) return null;
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+  }, []);
+
   const socket = useMeetSocket({
     refs,
     roomId,
@@ -565,6 +605,9 @@ export default function MeetsClient({
     user: currentUser,
     userId,
     getJoinInfo,
+    joinMode,
+    webinarSignedToken,
+    requestWebinarInviteCode,
     ghostEnabled,
     displayNameInput,
     localStream,
@@ -576,6 +619,8 @@ export default function MeetsClient({
     setMeetError,
     setWaitingMessage,
     setHostUserId,
+    setWebinarConfig,
+    setWebinarRole,
     isMuted,
     setIsMuted,
     isCameraOff,
@@ -663,12 +708,28 @@ export default function MeetsClient({
 
   const joinRoom = socket.joinRoom;
   const joinRoomById = socket.joinRoomById;
+  const getWebinarConfig = socket.getWebinarConfig;
+
+  useEffect(() => {
+    if (connectionState !== "joined") return;
+    if (!isAdminFlag) return;
+    void getWebinarConfig?.();
+  }, [connectionState, isAdminFlag, getWebinarConfig]);
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
+    if (isGuestUser(currentUser)) {
+      clearGuestStorage();
+      setCurrentUser(undefined);
+      setCurrentIsAdmin(false);
+      setIsSigningOut(false);
+      return;
+    }
+
     try {
       await signOut();
+      clearGuestStorage();
       setCurrentUser(undefined);
       setCurrentIsAdmin(false);
     } catch (error) {
@@ -676,7 +737,7 @@ export default function MeetsClient({
     } finally {
       setIsSigningOut(false);
     }
-  }, [isSigningOut]);
+  }, [clearGuestStorage, currentUser, isSigningOut]);
 
   const leaveRoom = useCallback(() => {
     playNotificationSoundForEvents("leave");
@@ -885,6 +946,8 @@ export default function MeetsClient({
           roomId={roomId}
           setRoomId={setRoomId}
           joinRoomById={joinRoomById}
+          hideJoinUI={hideJoinUI || joinMode === "webinar_attendee"}
+          isWebinarAttendee={isWebinarAttendee}
           enableRoomRouting={enableRoomRouting}
           forceJoinOnly={forceJoinOnly}
           allowGhostMode={allowGhostMode}
@@ -906,7 +969,10 @@ export default function MeetsClient({
           isMirrorCamera={isMirrorCamera}
           activeSpeakerId={effectiveActiveSpeakerId}
           currentUserId={userId}
+          selectedAudioInputDeviceId={selectedAudioInputDeviceId}
           audioOutputDeviceId={selectedAudioOutputDeviceId}
+          onAudioInputDeviceChange={handleAudioInputDeviceChange}
+          onAudioOutputDeviceChange={handleAudioOutputDeviceChange}
           activeScreenShareId={activeScreenShareId}
           isScreenSharing={isScreenSharing}
           isChatOpen={isChatOpen}
@@ -959,6 +1025,14 @@ export default function MeetsClient({
           onTestSpeaker={handleTestSpeaker}
           hostUserId={hostUserId}
           isNetworkOffline={isNetworkOffline}
+          webinarConfig={webinarConfig}
+          webinarRole={webinarRole}
+          webinarLink={webinarLink}
+          onSetWebinarLink={setWebinarLink}
+          onGetWebinarConfig={socket.getWebinarConfig}
+          onUpdateWebinarConfig={socket.updateWebinarConfig}
+          onGenerateWebinarLink={socket.generateWebinarLink}
+          onRotateWebinarLink={socket.rotateWebinarLink}
         />
       </div>,
     );
@@ -1019,6 +1093,8 @@ export default function MeetsClient({
         roomId={roomId}
         setRoomId={setRoomId}
         joinRoomById={joinRoomById}
+        hideJoinUI={hideJoinUI || joinMode === "webinar_attendee"}
+        isWebinarAttendee={isWebinarAttendee}
         enableRoomRouting={enableRoomRouting}
         forceJoinOnly={forceJoinOnly}
         allowGhostMode={allowGhostMode}
@@ -1108,6 +1184,14 @@ export default function MeetsClient({
         onClosePopout={closePopout}
         hostUserId={hostUserId}
         isNetworkOffline={isNetworkOffline}
+        webinarConfig={webinarConfig}
+        webinarRole={webinarRole}
+        webinarLink={webinarLink}
+        onSetWebinarLink={setWebinarLink}
+        onGetWebinarConfig={socket.getWebinarConfig}
+        onUpdateWebinarConfig={socket.updateWebinarConfig}
+        onGenerateWebinarLink={socket.generateWebinarLink}
+        onRotateWebinarLink={socket.rotateWebinarLink}
       />
     </div>,
   );

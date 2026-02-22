@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Socket } from "socket.io-client";
-import { formatDisplayName, isSystemUserId, normalizeDisplayName } from "../lib/utils";
+import {
+  formatDisplayName,
+  isSystemUserId,
+  normalizeDisplayName,
+} from "../lib/utils";
+import type { JoinMode } from "../lib/types";
 
 interface UseMeetDisplayNameOptions {
   user?: {
@@ -16,6 +21,8 @@ interface UseMeetDisplayNameOptions {
   joinOptionsRef: React.MutableRefObject<{
     displayName?: string;
     isGhost: boolean;
+    joinMode: JoinMode;
+    webinarInviteCode?: string;
   }>;
 }
 
@@ -77,6 +84,7 @@ export function useMeetDisplayName({
   useEffect(() => {
     const normalized = normalizeDisplayName(displayNameInput);
     joinOptionsRef.current = {
+      ...joinOptionsRef.current,
       displayName: isAdmin ? normalized || undefined : undefined,
       isGhost: ghostEnabled,
     };

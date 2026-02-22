@@ -21,6 +21,7 @@ import {
   buildWebcamSimulcastEncodings,
   buildWebcamSingleLayerEncoding,
 } from "../video-encodings";
+import { setAudioRoute } from "@/lib/call-service";
 
 const ANDROID_BLUETOOTH_CONNECT_PERMISSION =
   "android.permission.BLUETOOTH_CONNECT" as Permission;
@@ -867,8 +868,20 @@ export function useMeetMedia({
   );
 
   const handleAudioOutputDeviceChange = useCallback(
-    async (deviceId: string) => {
+    (deviceId: string) => {
       setSelectedAudioOutputDeviceId(deviceId);
+
+      if (deviceId === "route:speaker") {
+        setAudioRoute("speaker");
+        return;
+      }
+      if (deviceId === "route:earpiece") {
+        setAudioRoute("earpiece");
+        return;
+      }
+      if (deviceId === "route:auto") {
+        setAudioRoute("auto");
+      }
     },
     [setSelectedAudioOutputDeviceId]
   );

@@ -47,6 +47,7 @@ export interface JoinRoomData {
   sessionId?: string;
   displayName?: string;
   ghost?: boolean;
+  webinarInviteCode?: string;
 }
 
 export interface JoinRoomResponse {
@@ -56,6 +57,12 @@ export interface JoinRoomResponse {
   hostUserId?: string | null;
   isLocked?: boolean;
   isTtsDisabled?: boolean;
+  webinarRole?: "attendee" | "participant" | "host";
+  isWebinarEnabled?: boolean;
+  webinarLocked?: boolean;
+  webinarRequiresInviteCode?: boolean;
+  webinarAttendeeCount?: number;
+  webinarMaxAttendees?: number;
 }
 
 export interface CreateTransportResponse {
@@ -107,6 +114,45 @@ export interface ProducerInfo {
   kind: MediaKind;
   type: "webcam" | "screen";
   paused?: boolean;
+}
+
+export type WebinarFeedMode = "active-speaker";
+
+export interface WebinarConfigSnapshot {
+  enabled: boolean;
+  publicAccess: boolean;
+  locked: boolean;
+  maxAttendees: number;
+  attendeeCount: number;
+  requiresInviteCode: boolean;
+  feedMode: WebinarFeedMode;
+}
+
+export interface WebinarUpdateRequest {
+  enabled?: boolean;
+  publicAccess?: boolean;
+  locked?: boolean;
+  maxAttendees?: number;
+  inviteCode?: string | null;
+}
+
+export interface WebinarLinkResponse {
+  link: string;
+  signedToken?: string;
+  publicAccess: boolean;
+  linkVersion: number;
+}
+
+export interface WebinarFeedChangedNotification {
+  roomId: string;
+  speakerUserId: string | null;
+  producers: ProducerInfo[];
+}
+
+export interface WebinarAttendeeCountChangedNotification {
+  roomId: string;
+  attendeeCount: number;
+  maxAttendees: number;
 }
 
 export interface ToggleMediaData {

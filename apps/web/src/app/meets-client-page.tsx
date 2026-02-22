@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import MeetsClient from "./meets-client";
+import type { JoinMode } from "./lib/types";
 
 const reactionAssets = [
   "aura.gif",
@@ -27,6 +28,10 @@ type MeetsClientPageProps = {
   initialRoomId?: string;
   forceJoinOnly?: boolean;
   bypassMediaPermissions?: boolean;
+  joinMode?: JoinMode;
+  webinarSignedToken?: string;
+  autoJoinOnMount?: boolean;
+  hideJoinUI?: boolean;
   fontClassName?: string;
 };
 
@@ -34,6 +39,10 @@ export default function MeetsClientPage({
   initialRoomId,
   forceJoinOnly = false,
   bypassMediaPermissions = false,
+  joinMode = "meeting",
+  webinarSignedToken,
+  autoJoinOnMount = false,
+  hideJoinUI = false,
   fontClassName,
 }: MeetsClientPageProps) {
   const user = undefined;
@@ -47,10 +56,15 @@ export default function MeetsClientPage({
       options?: {
         user?: { id?: string; email?: string | null; name?: string | null };
         isHost?: boolean;
+        joinMode?: JoinMode;
+        webinarSignedToken?: string;
       }
     ) => {
       const resolvedUser = options?.user ?? user;
       const isHost = Boolean(options?.isHost);
+      const resolvedJoinMode = options?.joinMode ?? joinMode;
+      const resolvedWebinarSignedToken =
+        options?.webinarSignedToken ?? webinarSignedToken;
       const response = await fetch("/api/sfu/join", {
         method: "POST",
         headers: {
@@ -64,6 +78,8 @@ export default function MeetsClientPage({
           isHost,
           allowRoomCreation: forceJoinOnly,
           clientId,
+          joinMode: resolvedJoinMode,
+          webinarSignedToken: resolvedWebinarSignedToken,
         }),
       });
 
@@ -73,7 +89,7 @@ export default function MeetsClientPage({
 
       return response.json();
     },
-    [forceJoinOnly, user]
+    [forceJoinOnly, joinMode, user, webinarSignedToken]
   );
 
   const getRooms = useCallback(async () => {
@@ -104,6 +120,10 @@ export default function MeetsClientPage({
         forceJoinOnly={forceJoinOnly}
         allowGhostMode={!isPublicClient}
         bypassMediaPermissions={bypassMediaPermissions}
+        joinMode={joinMode}
+        webinarSignedToken={webinarSignedToken}
+        autoJoinOnMount={autoJoinOnMount}
+        hideJoinUI={hideJoinUI}
         getJoinInfo={getJoinInfo}
         getRooms={getRooms}
         getRoomsForRedirect={getRoomsForRedirect}

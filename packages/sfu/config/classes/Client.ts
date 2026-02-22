@@ -9,10 +9,12 @@ import type {
 export interface ClientOptions {
   id: string;
   socket: Socket;
+  mode?: ClientMode;
   isGhost?: boolean;
 }
 
 export type ProducerType = "webcam" | "screen";
+export type ClientMode = "participant" | "ghost" | "webinar_attendee";
 
 export type ProducerKey = `${MediaKind}-${ProducerType}`;
 
@@ -26,7 +28,7 @@ export function createProducerKey(
 export class Client {
   public readonly id: string;
   public readonly socket: Socket;
-  public readonly isGhost: boolean;
+  public readonly mode: ClientMode;
 
   public producerTransport: WebRtcTransport | null = null;
   public consumerTransport: WebRtcTransport | null = null;
@@ -41,7 +43,25 @@ export class Client {
   constructor(options: ClientOptions) {
     this.id = options.id;
     this.socket = options.socket;
-    this.isGhost = options.isGhost ?? false;
+    if (options.mode) {
+      this.mode = options.mode;
+    } else if (options.isGhost) {
+      this.mode = "ghost";
+    } else {
+      this.mode = "participant";
+    }
+  }
+
+  get isGhost(): boolean {
+    return this.mode === "ghost";
+  }
+
+  get isWebinarAttendee(): boolean {
+    return this.mode === "webinar_attendee";
+  }
+
+  get isObserver(): boolean {
+    return this.isGhost || this.isWebinarAttendee;
   }
 
   addProducer(producer: Producer): void {
