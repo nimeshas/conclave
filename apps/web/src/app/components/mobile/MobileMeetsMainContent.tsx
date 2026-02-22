@@ -1,8 +1,8 @@
 "use client";
 
 import { Ghost, RefreshCw } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, PointerEvent, SetStateAction } from "react";
 import type { Socket } from "socket.io-client";
 import type {
   ChatMessage,
@@ -127,6 +127,7 @@ interface MobileMeetsMainContentProps {
   isTtsDisabled: boolean;
   webinarConfig?: WebinarConfigSnapshot | null;
   webinarRole?: "attendee" | "participant" | "host" | null;
+  webinarSpeakerUserId?: string | null;
   webinarLink?: string | null;
   onSetWebinarLink?: (link: string | null) => void;
   onGetWebinarConfig?: () => Promise<WebinarConfigSnapshot | null>;
@@ -149,6 +150,33 @@ const getLiveVideoStream = (stream: MediaStream | null): MediaStream | null => {
 const getVideoTrackId = (stream: MediaStream | null): string => {
   const [track] = stream?.getVideoTracks() ?? [];
   return track?.id ?? "none";
+};
+
+type PipCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+type PipDragMeta = {
+  pointerId: number;
+  stageRect: DOMRect;
+  pipWidth: number;
+  pipHeight: number;
+  offsetX: number;
+  offsetY: number;
+};
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
+const getPipCornerClass = (corner: PipCorner): string => {
+  switch (corner) {
+    case "top-left":
+      return "top-3 left-3";
+    case "top-right":
+      return "top-3 right-3";
+    case "bottom-left":
+      return "bottom-3 left-3";
+    case "bottom-right":
+    default:
+      return "bottom-3 right-3";
+  }
 };
 
 function MobileMeetsMainContent({
@@ -239,6 +267,7 @@ function MobileMeetsMainContent({
   isTtsDisabled,
   webinarConfig,
   webinarRole,
+  webinarSpeakerUserId,
   webinarLink,
   onSetWebinarLink,
   onGetWebinarConfig,
@@ -337,6 +366,13 @@ function MobileMeetsMainContent({
       ),
     [participantsArray],
   );
+  const webinarStageRef = useRef<HTMLDivElement>(null);
+  const pipDragRef = useRef<PipDragMeta | null>(null);
+  const [pipCorner, setPipCorner] = useState<PipCorner>("bottom-right");
+  const [pipDragPosition, setPipDragPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const webinarStage = useMemo(() => {
     if (!webinarParticipants.length) {
       return null;
@@ -396,7 +432,29 @@ function MobileMeetsMainContent({
       }
     }
 
+    const preferredIds = [
+      webinarSpeakerUserId ?? null,
+      activeSpeakerId ?? null,
+    ].filter((value, index, list): value is string => {
+      return Boolean(value) && list.indexOf(value) === index;
+    });
+    const preferredParticipant = preferredIds
+      .map((userId) =>
+        webinarParticipants.find((participant) => participant.userId === userId),
+      )
+      .find((participant) => participant !== undefined);
+    const preferredVideoParticipant =
+      preferredParticipant &&
+      getLiveVideoStream(preferredParticipant.videoStream)
+        ? preferredParticipant
+        : null;
+    const preferredAudioParticipant =
+      preferredParticipant && preferredParticipant.audioStream
+        ? preferredParticipant
+        : null;
+
     const cameraParticipant =
+      preferredVideoParticipant ??
       webinarParticipants.find(
         (participant) =>
           !participant.isCameraOff &&
@@ -405,6 +463,7 @@ function MobileMeetsMainContent({
       webinarParticipants.find((participant) =>
         getLiveVideoStream(participant.videoStream),
       ) ??
+      preferredAudioParticipant ??
       webinarParticipants.find((participant) => participant.audioStream) ??
       webinarParticipants[0];
     const cameraStream = getLiveVideoStream(cameraParticipant.videoStream);
@@ -424,7 +483,108 @@ function MobileMeetsMainContent({
       pip: null,
       isScreenShare: false,
     };
-  }, [activeScreenShareId, resolveDisplayName, webinarParticipants]);
+  }, [
+    activeScreenShareId,
+    activeSpeakerId,
+    resolveDisplayName,
+    webinarParticipants,
+    webinarSpeakerUserId,
+  ]);
+  const pipCornerClass = useMemo(() => getPipCornerClass(pipCorner), [pipCorner]);
+  const handlePipPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const stage = webinarStageRef.current;
+      if (!stage) return;
+
+      const stageRect = stage.getBoundingClientRect();
+      const pipRect = event.currentTarget.getBoundingClientRect();
+
+      pipDragRef.current = {
+        pointerId: event.pointerId,
+        stageRect,
+        pipWidth: pipRect.width,
+        pipHeight: pipRect.height,
+        offsetX: event.clientX - pipRect.left,
+        offsetY: event.clientY - pipRect.top,
+      };
+
+      setPipDragPosition({
+        x: pipRect.left - stageRect.left,
+        y: pipRect.top - stageRect.top,
+      });
+
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    },
+    [],
+  );
+  const handlePipPointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const drag = pipDragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+
+      const minX = 8;
+      const minY = 8;
+      const maxX = Math.max(minX, drag.stageRect.width - drag.pipWidth - 8);
+      const maxY = Math.max(minY, drag.stageRect.height - drag.pipHeight - 8);
+      const nextX = clamp(
+        event.clientX - drag.stageRect.left - drag.offsetX,
+        minX,
+        maxX,
+      );
+      const nextY = clamp(
+        event.clientY - drag.stageRect.top - drag.offsetY,
+        minY,
+        maxY,
+      );
+
+      setPipDragPosition({ x: nextX, y: nextY });
+      event.preventDefault();
+    },
+    [],
+  );
+  const handlePipPointerUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const drag = pipDragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+
+      const minX = 8;
+      const minY = 8;
+      const maxX = Math.max(minX, drag.stageRect.width - drag.pipWidth - 8);
+      const maxY = Math.max(minY, drag.stageRect.height - drag.pipHeight - 8);
+      const finalX = pipDragPosition
+        ? pipDragPosition.x
+        : clamp(
+            event.clientX - drag.stageRect.left - drag.offsetX,
+            minX,
+            maxX,
+          );
+      const finalY = pipDragPosition
+        ? pipDragPosition.y
+        : clamp(
+            event.clientY - drag.stageRect.top - drag.offsetY,
+            minY,
+            maxY,
+          );
+      const horizontal =
+        finalX + drag.pipWidth / 2 <= drag.stageRect.width / 2 ? "left" : "right";
+      const vertical =
+        finalY + drag.pipHeight / 2 <= drag.stageRect.height / 2 ? "top" : "bottom";
+      setPipCorner(`${vertical}-${horizontal}` as PipCorner);
+      setPipDragPosition(null);
+      pipDragRef.current = null;
+
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      event.preventDefault();
+    },
+    [pipDragPosition],
+  );
+  const handlePipPointerCancel = useCallback(() => {
+    pipDragRef.current = null;
+    setPipDragPosition(null);
+  }, []);
 
   if (!isJoined) {
     if (hideJoinUI) {
@@ -536,7 +696,10 @@ function MobileMeetsMainContent({
         {isWebinarAttendee ? (
           <div className="flex h-full items-center justify-center px-4">
             {webinarStage ? (
-              <div className="relative h-[66vh] w-full max-w-3xl">
+              <div
+                ref={webinarStageRef}
+                className="relative h-[66vh] w-full max-w-3xl"
+              >
                 <ParticipantVideo
                   key={`${webinarStage.main.participant.userId}:${getVideoTrackId(
                     webinarStage.main.participant.videoStream,
@@ -550,7 +713,23 @@ function MobileMeetsMainContent({
                   videoObjectFit={webinarStage.isScreenShare ? "contain" : "cover"}
                 />
                 {webinarStage.pip ? (
-                  <div className="pointer-events-none absolute bottom-3 right-3 h-24 w-36 overflow-hidden rounded-xl border border-[#FEFCD9]/20 bg-black/75 shadow-[0_12px_24px_rgba(0,0,0,0.45)]">
+                  <div
+                    className={`absolute h-24 w-36 overflow-hidden rounded-xl border border-[#FEFCD9]/20 bg-black/75 shadow-[0_12px_24px_rgba(0,0,0,0.45)] ${pipDragPosition ? "" : pipCornerClass} cursor-grab active:cursor-grabbing touch-none select-none`}
+                    style={
+                      pipDragPosition
+                        ? {
+                            left: `${pipDragPosition.x}px`,
+                            top: `${pipDragPosition.y}px`,
+                            right: "auto",
+                            bottom: "auto",
+                          }
+                        : undefined
+                    }
+                    onPointerDown={handlePipPointerDown}
+                    onPointerMove={handlePipPointerMove}
+                    onPointerUp={handlePipPointerUp}
+                    onPointerCancel={handlePipPointerCancel}
+                  >
                     <ParticipantVideo
                       key={`${webinarStage.pip.participant.userId}:${getVideoTrackId(
                         webinarStage.pip.participant.videoStream,

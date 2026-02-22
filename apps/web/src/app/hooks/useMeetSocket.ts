@@ -82,6 +82,7 @@ interface UseMeetSocketOptions {
     React.SetStateAction<WebinarConfigSnapshot | null>
   >;
   setWebinarRole: (role: "attendee" | "participant" | "host" | null) => void;
+  setWebinarSpeakerUserId: (userId: string | null) => void;
   isMuted: boolean;
   setIsMuted: (value: boolean) => void;
   isCameraOff: boolean;
@@ -156,6 +157,7 @@ export function useMeetSocket({
   setHostUserId,
   setWebinarConfig,
   setWebinarRole,
+  setWebinarSpeakerUserId,
   isMuted,
   setIsMuted,
   isCameraOff,
@@ -186,6 +188,10 @@ export function useMeetSocket({
 }: UseMeetSocketOptions) {
   const participantIdsRef = useRef<Set<string>>(new Set([userId]));
   const serverRoomIdRef = useRef<string | null>(null);
+  const consumeRetryAttemptsRef = useRef<Map<string, number>>(new Map());
+  const consumeProducerRef = useRef<
+    (producerInfo: ProducerInfo) => Promise<void>
+  >(async () => {});
 
   const {
     socketRef,
@@ -211,6 +217,7 @@ export function useMeetSocket({
     sessionIdRef,
     producerTransportDisconnectTimeoutRef,
     consumerTransportDisconnectTimeoutRef,
+    pendingProducerRetryTimeoutRef,
     iceRestartInFlightRef,
     producerSyncIntervalRef,
   } = refs;
@@ -247,6 +254,10 @@ export function useMeetSocket({
         window.clearInterval(producerSyncIntervalRef.current);
         producerSyncIntervalRef.current = null;
       }
+      if (pendingProducerRetryTimeoutRef.current) {
+        window.clearTimeout(pendingProducerRetryTimeoutRef.current);
+        pendingProducerRetryTimeoutRef.current = null;
+      }
 
       consumersRef.current.forEach((consumer) => {
         try {
@@ -256,6 +267,7 @@ export function useMeetSocket({
       consumersRef.current.clear();
       producerMapRef.current.clear();
       pendingProducersRef.current.clear();
+      consumeRetryAttemptsRef.current.clear();
       leaveTimeoutsRef.current.forEach((timeoutId) => {
         window.clearTimeout(timeoutId);
       });
@@ -265,6 +277,7 @@ export function useMeetSocket({
       setDisplayNames(new Map());
       setHostUserId(null);
       setWebinarRole(null);
+      setWebinarSpeakerUserId(null);
       participantIdsRef.current = new Set([userId]);
       serverRoomIdRef.current = null;
 
@@ -327,6 +340,7 @@ export function useMeetSocket({
       setPendingUsers,
       setHostUserId,
       setWebinarRole,
+      setWebinarSpeakerUserId,
       setIsTtsDisabled,
       setWebinarConfig,
       clearReactions,
@@ -334,7 +348,9 @@ export function useMeetSocket({
       userId,
       producerTransportDisconnectTimeoutRef,
       consumerTransportDisconnectTimeoutRef,
+      pendingProducerRetryTimeoutRef,
       producerSyncIntervalRef,
+      consumeRetryAttemptsRef,
     ],
   );
 
@@ -409,6 +425,7 @@ export function useMeetSocket({
   const handleProducerClosed = useCallback(
     (producerId: string) => {
       pendingProducersRef.current.delete(producerId);
+      consumeRetryAttemptsRef.current.delete(producerId);
       const consumer = consumersRef.current.get(producerId);
       if (consumer) {
         try {
@@ -456,8 +473,40 @@ export function useMeetSocket({
       consumersRef,
       dispatchParticipants,
       pendingProducersRef,
+      consumeRetryAttemptsRef,
       producerMapRef,
       setActiveScreenShareId,
+    ],
+  );
+
+  const queueProducerConsumeRetry = useCallback(
+    (producerInfo: ProducerInfo, delayMs = 300) => {
+      const attemptCount =
+        (consumeRetryAttemptsRef.current.get(producerInfo.producerId) ?? 0) + 1;
+      if (attemptCount > 4) {
+        pendingProducersRef.current.delete(producerInfo.producerId);
+        consumeRetryAttemptsRef.current.delete(producerInfo.producerId);
+        return;
+      }
+
+      consumeRetryAttemptsRef.current.set(producerInfo.producerId, attemptCount);
+      pendingProducersRef.current.set(producerInfo.producerId, producerInfo);
+
+      if (pendingProducerRetryTimeoutRef.current) return;
+
+      pendingProducerRetryTimeoutRef.current = window.setTimeout(() => {
+        pendingProducerRetryTimeoutRef.current = null;
+        const pending = Array.from(pendingProducersRef.current.values());
+        pendingProducersRef.current.clear();
+        for (const pendingProducer of pending) {
+          void consumeProducerRef.current(pendingProducer);
+        }
+      }, delayMs);
+    },
+    [
+      consumeRetryAttemptsRef,
+      pendingProducersRef,
+      pendingProducerRetryTimeoutRef,
     ],
   );
 
@@ -862,6 +911,7 @@ export function useMeetSocket({
         return;
       }
       if (consumersRef.current.has(producerInfo.producerId)) {
+        consumeRetryAttemptsRef.current.delete(producerInfo.producerId);
         return;
       }
 
@@ -870,7 +920,7 @@ export function useMeetSocket({
       const transport = consumerTransportRef.current;
 
       if (!socket || !device || !transport) {
-        pendingProducersRef.current.set(producerInfo.producerId, producerInfo);
+        queueProducerConsumeRetry(producerInfo, 300);
         return;
       }
 
@@ -884,6 +934,7 @@ export function useMeetSocket({
           async (response: ConsumeResponse | { error: string }) => {
             if ("error" in response) {
               console.error("[Meets] Consume error:", response.error);
+              queueProducerConsumeRetry(producerInfo, 300);
               resolve();
               return;
             }
@@ -895,8 +946,29 @@ export function useMeetSocket({
                 kind: response.kind,
                 rtpParameters: response.rtpParameters,
               });
+              if (
+                joinMode === "webinar_attendee" &&
+                response.kind === "video" &&
+                producerInfo.type === "webcam"
+              ) {
+                try {
+                  const layerConsumer = consumer as typeof consumer & {
+                    setPreferredLayers?: (layers: {
+                      spatialLayer: number;
+                      temporalLayer?: number;
+                    }) => Promise<void>;
+                  };
+                  await layerConsumer.setPreferredLayers?.({
+                    spatialLayer: 0,
+                    temporalLayer: 1,
+                  });
+                } catch {
+                  // Simulcast layers may be unavailable in some browser/device paths.
+                }
+              }
 
               consumersRef.current.set(producerInfo.producerId, consumer);
+              consumeRetryAttemptsRef.current.delete(producerInfo.producerId);
               producerMapRef.current.set(producerInfo.producerId, {
                 userId: producerInfo.producerUserId,
                 kind: response.kind,
@@ -976,6 +1048,7 @@ export function useMeetSocket({
               resolve();
             } catch (err) {
               console.error("[Meets] Failed to create consumer:", err);
+              queueProducerConsumeRetry(producerInfo, 350);
               resolve();
             }
           },
@@ -984,6 +1057,7 @@ export function useMeetSocket({
     },
     [
       consumersRef,
+      consumeRetryAttemptsRef,
       pendingProducersRef,
       socketRef,
       deviceRef,
@@ -991,10 +1065,13 @@ export function useMeetSocket({
       producerMapRef,
       dispatchParticipants,
       handleProducerClosed,
+      joinMode,
+      queueProducerConsumeRetry,
       setActiveScreenShareId,
       userId,
     ],
   );
+  consumeProducerRef.current = consumeProducer;
 
   const syncProducers = useCallback(async () => {
     const socket = socketRef.current;
@@ -1067,7 +1144,16 @@ export function useMeetSocket({
           continue;
         }
         if (pendingProducersRef.current.has(producerInfo.producerId)) continue;
-        await consumeProducer(producerInfo);
+      }
+
+      const consumeTasks: Promise<void>[] = [];
+      for (const producerInfo of producers) {
+        if (consumersRef.current.has(producerInfo.producerId)) continue;
+        if (pendingProducersRef.current.has(producerInfo.producerId)) continue;
+        consumeTasks.push(consumeProducer(producerInfo));
+      }
+      if (consumeTasks.length > 0) {
+        await Promise.all(consumeTasks);
       }
     } catch (err) {
       console.error("[Meets] Failed to sync producers:", err);
@@ -1083,6 +1169,21 @@ export function useMeetSocket({
     consumeProducer,
     handleProducerClosed,
   ]);
+
+  const applyWebinarFeedProducers = useCallback(
+    async (producers: ProducerInfo[]) => {
+      const serverProducerIds = new Set(
+        producers.map((producer) => producer.producerId),
+      );
+      for (const producerId of producerMapRef.current.keys()) {
+        if (!serverProducerIds.has(producerId)) {
+          handleProducerClosed(producerId);
+        }
+      }
+      await Promise.all(producers.map((producer) => consumeProducer(producer)));
+    },
+    [consumeProducer, handleProducerClosed, producerMapRef],
+  );
 
   const startProducerSync = useCallback(() => {
     if (producerSyncIntervalRef.current) {
@@ -1139,6 +1240,9 @@ export function useMeetSocket({
               setConnectionState("waiting");
               setHostUserId(response.hostUserId ?? null);
               setWebinarRole(response.webinarRole ?? null);
+              setWebinarSpeakerUserId(
+                response.existingProducers?.[0]?.producerUserId ?? null,
+              );
               setWebinarConfig((previous) => ({
                 enabled: response.isWebinarEnabled ?? previous?.enabled ?? false,
                 publicAccess: previous?.publicAccess ?? false,
@@ -1176,6 +1280,9 @@ export function useMeetSocket({
               setIsRoomLocked(response.isLocked ?? false);
               setIsTtsDisabled(response.isTtsDisabled ?? false);
               setWebinarRole(response.webinarRole ?? null);
+              setWebinarSpeakerUserId(
+                response.existingProducers?.[0]?.producerUserId ?? null,
+              );
               setWebinarConfig((previous) => ({
                 enabled: response.isWebinarEnabled ?? previous?.enabled ?? false,
                 publicAccess: previous?.publicAccess ?? false,
@@ -1253,6 +1360,7 @@ export function useMeetSocket({
       setHostUserId,
       setWebinarConfig,
       setWebinarRole,
+      setWebinarSpeakerUserId,
       currentRoomIdRef,
       deviceRef,
       createProducerTransport,
@@ -2016,7 +2124,14 @@ export function useMeetSocket({
               (notification: WebinarFeedChangedNotification) => {
                 if (joinMode !== "webinar_attendee") return;
                 if (!isRoomEvent(notification.roomId)) return;
-                void syncProducers();
+                setWebinarSpeakerUserId(
+                  notification.speakerUserId ??
+                    notification.producers?.[0]?.producerUserId ??
+                    null,
+                );
+                void applyWebinarFeedProducers(notification.producers).finally(() => {
+                  void syncProducers();
+                });
               },
             );
 
@@ -2060,6 +2175,7 @@ export function useMeetSocket({
       pendingProducersRef,
       playNotificationSound,
       shouldPlayJoinLeaveSound,
+      applyWebinarFeedProducers,
       producerMapRef,
       reconnectAttemptsRef,
       screenProducerRef,
@@ -2074,6 +2190,7 @@ export function useMeetSocket({
       setIsTtsDisabled,
       setHostUserId,
       setWebinarRole,
+      setWebinarSpeakerUserId,
       setWebinarConfig,
       setLocalStream,
       setMeetError,

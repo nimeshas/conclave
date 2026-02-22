@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   LayoutAnimation,
+  PanResponder,
   Platform,
   Share,
   StyleSheet,
@@ -94,11 +95,54 @@ interface CallScreenProps {
   pendingUsersCount?: number;
   isObserverMode?: boolean;
   webinarConfig?: WebinarConfigSnapshot | null;
+  webinarSpeakerUserId?: string | null;
 }
 
 const columnWrapperStyle = { gap: 12 } as const;
 const columnWrapperStyleTablet = { gap: 16 } as const;
 const observerAudioStyle = { width: 1, height: 1, opacity: 0 };
+type PipCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+const OBSERVER_PIP_MARGIN = 12;
+const OBSERVER_PIP_WIDTH = 132;
+const OBSERVER_PIP_HEIGHT = 84;
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
+const getObserverPipCornerPosition = (
+  corner: PipCorner,
+  stageWidth: number,
+  stageHeight: number
+) => {
+  const minX = OBSERVER_PIP_MARGIN;
+  const minY = OBSERVER_PIP_MARGIN;
+  const maxX = Math.max(minX, stageWidth - OBSERVER_PIP_WIDTH - OBSERVER_PIP_MARGIN);
+  const maxY = Math.max(minY, stageHeight - OBSERVER_PIP_HEIGHT - OBSERVER_PIP_MARGIN);
+
+  switch (corner) {
+    case "top-left":
+      return { x: minX, y: minY };
+    case "top-right":
+      return { x: maxX, y: minY };
+    case "bottom-left":
+      return { x: minX, y: maxY };
+    case "bottom-right":
+    default:
+      return { x: maxX, y: maxY };
+  }
+};
+
+const resolveObserverPipCorner = (
+  x: number,
+  y: number,
+  stageWidth: number,
+  stageHeight: number
+): PipCorner => {
+  const horizontal = x + OBSERVER_PIP_WIDTH / 2 <= stageWidth / 2 ? "left" : "right";
+  const vertical = y + OBSERVER_PIP_HEIGHT / 2 <= stageHeight / 2 ? "top" : "bottom";
+  return `${vertical}-${horizontal}` as PipCorner;
+};
+
 const getLiveVideoStream = (stream: MediaStream | null): MediaStream | null => {
   if (!stream) return null;
   const [track] = stream.getVideoTracks();
@@ -144,6 +188,7 @@ export function CallScreen({
   pendingUsersCount = 0,
   isObserverMode = false,
   webinarConfig,
+  webinarSpeakerUserId,
   presentationStream = null,
   presenterName = "",
 }: CallScreenProps) {
@@ -269,7 +314,29 @@ export function CallScreen({
       }
     }
 
+    const preferredIds = [
+      webinarSpeakerUserId ?? null,
+      activeSpeakerId ?? null,
+    ].filter((value, index, list): value is string => {
+      return Boolean(value) && list.indexOf(value) === index;
+    });
+    const preferredParticipant = preferredIds
+      .map((userId) =>
+        webinarParticipants.find((participant) => participant.userId === userId)
+      )
+      .find((participant) => participant !== undefined);
+    const preferredVideoParticipant =
+      preferredParticipant &&
+      getLiveVideoStream(preferredParticipant.videoStream)
+        ? preferredParticipant
+        : null;
+    const preferredAudioParticipant =
+      preferredParticipant && preferredParticipant.audioStream
+        ? preferredParticipant
+        : null;
+
     const cameraParticipant =
+      preferredVideoParticipant ??
       webinarParticipants.find(
         (participant) =>
           !participant.isCameraOff &&
@@ -278,6 +345,7 @@ export function CallScreen({
       webinarParticipants.find((participant) =>
         getLiveVideoStream(participant.videoStream)
       ) ??
+      preferredAudioParticipant ??
       webinarParticipants.find((participant) => participant.audioStream) ??
       webinarParticipants[0];
     const cameraStream = getLiveVideoStream(cameraParticipant.videoStream);
@@ -290,7 +358,125 @@ export function CallScreen({
       pipDisplayName: "",
       isScreenShare: false,
     };
-  }, [presentationStream, presenterName, resolveDisplayName, webinarParticipants]);
+  }, [
+    activeSpeakerId,
+    presentationStream,
+    presenterName,
+    resolveDisplayName,
+    webinarParticipants,
+    webinarSpeakerUserId,
+  ]);
+  const [observerPipCorner, setObserverPipCorner] = useState<PipCorner>("bottom-right");
+  const [observerPipDragPosition, setObserverPipDragPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const observerPipDragOriginRef = useRef<{
+    x: number;
+    y: number;
+    stageWidth: number;
+    stageHeight: number;
+  } | null>(null);
+  const [observerStageSize, setObserverStageSize] = useState({
+    width: 0,
+    height: 0,
+  });
+  const observerPipPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          if (observerStageSize.width <= 0 || observerStageSize.height <= 0) {
+            return;
+          }
+          const origin = getObserverPipCornerPosition(
+            observerPipCorner,
+            observerStageSize.width,
+            observerStageSize.height
+          );
+          observerPipDragOriginRef.current = {
+            x: origin.x,
+            y: origin.y,
+            stageWidth: observerStageSize.width,
+            stageHeight: observerStageSize.height,
+          };
+          setObserverPipDragPosition(origin);
+        },
+        onPanResponderMove: (_, gestureState) => {
+          const origin = observerPipDragOriginRef.current;
+          if (!origin) return;
+          const minX = OBSERVER_PIP_MARGIN;
+          const minY = OBSERVER_PIP_MARGIN;
+          const maxX = Math.max(
+            minX,
+            origin.stageWidth - OBSERVER_PIP_WIDTH - OBSERVER_PIP_MARGIN
+          );
+          const maxY = Math.max(
+            minY,
+            origin.stageHeight - OBSERVER_PIP_HEIGHT - OBSERVER_PIP_MARGIN
+          );
+          const nextX = clamp(origin.x + gestureState.dx, minX, maxX);
+          const nextY = clamp(origin.y + gestureState.dy, minY, maxY);
+          setObserverPipDragPosition({ x: nextX, y: nextY });
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          const origin = observerPipDragOriginRef.current;
+          if (!origin) return;
+
+          const minX = OBSERVER_PIP_MARGIN;
+          const minY = OBSERVER_PIP_MARGIN;
+          const maxX = Math.max(
+            minX,
+            origin.stageWidth - OBSERVER_PIP_WIDTH - OBSERVER_PIP_MARGIN
+          );
+          const maxY = Math.max(
+            minY,
+            origin.stageHeight - OBSERVER_PIP_HEIGHT - OBSERVER_PIP_MARGIN
+          );
+          const fallbackX = clamp(origin.x + gestureState.dx, minX, maxX);
+          const fallbackY = clamp(origin.y + gestureState.dy, minY, maxY);
+          const resolvedX = observerPipDragPosition?.x ?? fallbackX;
+          const resolvedY = observerPipDragPosition?.y ?? fallbackY;
+          setObserverPipCorner(
+            resolveObserverPipCorner(
+              resolvedX,
+              resolvedY,
+              origin.stageWidth,
+              origin.stageHeight
+            )
+          );
+          setObserverPipDragPosition(null);
+          observerPipDragOriginRef.current = null;
+        },
+        onPanResponderTerminate: () => {
+          setObserverPipDragPosition(null);
+          observerPipDragOriginRef.current = null;
+        },
+      }),
+    [observerPipCorner, observerPipDragPosition, observerStageSize]
+  );
+  const observerPipPositionStyle = useMemo(() => {
+    if (observerPipDragPosition) {
+      return {
+        left: observerPipDragPosition.x,
+        top: observerPipDragPosition.y,
+        right: undefined,
+        bottom: undefined,
+      };
+    }
+    const position = getObserverPipCornerPosition(
+      observerPipCorner,
+      observerStageSize.width,
+      observerStageSize.height
+    );
+    return {
+      left: position.x,
+      top: position.y,
+      right: undefined,
+      bottom: undefined,
+    };
+  }, [observerPipCorner, observerPipDragPosition, observerStageSize]);
 
   const displayParticipantCount = isObserverMode
     ? webinarConfig?.attendeeCount ?? 0
@@ -521,7 +707,25 @@ export function CallScreen({
               { paddingBottom: 140 + insets.bottom },
             ]}
           >
-            <RNView style={styles.presentationStage}>
+            <RNView
+              style={styles.presentationStage}
+              onLayout={(event) => {
+                const { width: nextWidth, height: nextHeight } =
+                  event.nativeEvent.layout;
+                if (
+                  nextWidth <= 0 ||
+                  nextHeight <= 0 ||
+                  (observerStageSize.width === nextWidth &&
+                    observerStageSize.height === nextHeight)
+                ) {
+                  return;
+                }
+                setObserverStageSize({
+                  width: nextWidth,
+                  height: nextHeight,
+                });
+              }}
+            >
               {webinarStage?.mainVideoStream ? (
                 <RTCView
                   streamURL={webinarStage.mainVideoStream.toURL()}
@@ -552,7 +756,10 @@ export function CallScreen({
                 </RNView>
               ) : null}
               {webinarStage?.isScreenShare && webinarStage.pipVideoStream ? (
-                <RNView style={styles.observerPip}>
+                <RNView
+                  style={[styles.observerPip, observerPipPositionStyle]}
+                  {...observerPipPanResponder.panHandlers}
+                >
                   <RTCView
                     streamURL={webinarStage.pipVideoStream.toURL()}
                     style={styles.observerPipVideo}
@@ -885,8 +1092,6 @@ const styles = StyleSheet.create({
   },
   observerPip: {
     position: "absolute",
-    right: 12,
-    bottom: 12,
     width: 132,
     height: 84,
     borderRadius: 12,

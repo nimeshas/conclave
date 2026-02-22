@@ -34,6 +34,8 @@ export const DEFAULT_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 
 export const STANDARD_VIDEO_MAX_BITRATE = 1200000;
 export const LOW_VIDEO_MAX_BITRATE = 350000;
+export const SCREEN_SHARE_MAX_BITRATE = 1800000;
+export const SCREEN_SHARE_MAX_FRAMERATE = 24;
 export const OPUS_MAX_AVERAGE_BITRATE = 64000;
 
 export const MEETS_ICE_SERVERS: RTCIceServer[] = (() => {

@@ -242,6 +242,8 @@ export default function MeetsClient({
     setWebinarRole,
     webinarLink,
     setWebinarLink,
+    webinarSpeakerUserId,
+    setWebinarSpeakerUserId,
   } = useMeetState({ initialRoomId });
 
   const [browserAudioNeedsGesture, setBrowserAudioNeedsGesture] =
@@ -670,6 +672,7 @@ export default function MeetsClient({
     setHostUserId,
     setWebinarConfig,
     setWebinarRole,
+    setWebinarSpeakerUserId,
     isMuted,
     setIsMuted,
     isCameraOff,
@@ -1131,6 +1134,7 @@ export default function MeetsClient({
           isNetworkOffline={isNetworkOffline}
           webinarConfig={webinarConfig}
           webinarRole={webinarRole}
+          webinarSpeakerUserId={webinarSpeakerUserId}
           webinarLink={webinarLink}
           onSetWebinarLink={setWebinarLink}
           onGetWebinarConfig={socket.getWebinarConfig}
@@ -1291,6 +1295,7 @@ export default function MeetsClient({
         isNetworkOffline={isNetworkOffline}
         webinarConfig={webinarConfig}
         webinarRole={webinarRole}
+        webinarSpeakerUserId={webinarSpeakerUserId}
         webinarLink={webinarLink}
         onSetWebinarLink={setWebinarLink}
         onGetWebinarConfig={socket.getWebinarConfig}

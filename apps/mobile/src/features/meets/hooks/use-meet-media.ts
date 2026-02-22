@@ -19,6 +19,7 @@ import type {
 import { createMeetError } from "../utils";
 import {
   buildWebcamSimulcastEncodings,
+  buildScreenShareEncoding,
   buildWebcamSingleLayerEncoding,
 } from "../video-encodings";
 import { setAudioRoute } from "@/lib/call-service";
@@ -1569,7 +1570,7 @@ export function useMeetMedia({
 
       producer = await transport.produce({
         track,
-        encodings: [{ maxBitrate: 2500000 }],
+        encodings: [buildScreenShareEncoding()],
         appData: { type: "screen" as ProducerType },
       });
 

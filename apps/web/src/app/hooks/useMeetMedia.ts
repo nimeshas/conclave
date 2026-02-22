@@ -19,6 +19,7 @@ import type {
 import { createMeetError } from "../lib/utils";
 import {
   buildWebcamSimulcastEncodings,
+  buildScreenShareEncoding,
   buildWebcamSingleLayerEncoding,
 } from "../lib/video-encodings";
 
@@ -1160,9 +1161,9 @@ export function useMeetMedia({
       const videoConstraints: MediaTrackConstraints & {
         cursor?: "always" | "motion" | "never";
       } = {
-        frameRate: { ideal: 30, max: 60 },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        frameRate: { ideal: 24, max: 24 },
+        width: { ideal: 1600, max: 1920 },
+        height: { ideal: 900, max: 1080 },
         cursor: "always",
       };
 
@@ -1177,7 +1178,7 @@ export function useMeetMedia({
 
       const producer = await transport.produce({
         track,
-        encodings: [{ maxBitrate: 2500000 }],
+        encodings: [buildScreenShareEncoding()],
         appData: { type: "screen" as ProducerType },
       });
 

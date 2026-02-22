@@ -56,6 +56,7 @@ function ParticipantVideo({
 
     let cancelled = false;
     const replayTimeouts: number[] = [];
+    let replayRafId: number | null = null;
 
     const playVideo = () => {
       if (cancelled) return;
@@ -74,8 +75,21 @@ function ParticipantVideo({
     const scheduleReplay = () => {
       playVideo();
       if (typeof window !== "undefined") {
-        replayTimeouts.push(window.setTimeout(playVideo, 80));
-        replayTimeouts.push(window.setTimeout(playVideo, 220));
+        for (const delay of [80, 220, 480, 900, 1500]) {
+          replayTimeouts.push(window.setTimeout(playVideo, delay));
+        }
+        let frameAttempts = 0;
+        const replayOnFrame = () => {
+          if (cancelled) return;
+          if (video.paused || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+            playVideo();
+          }
+          frameAttempts += 1;
+          if (frameAttempts < 24) {
+            replayRafId = window.requestAnimationFrame(replayOnFrame);
+          }
+        };
+        replayRafId = window.requestAnimationFrame(replayOnFrame);
       }
     };
 
@@ -93,14 +107,21 @@ function ParticipantVideo({
     const handleResize = () => {
       scheduleReplay();
     };
+    const handleOrientationChange = () => {
+      scheduleReplay();
+    };
 
     if (videoTrack) {
       videoTrack.addEventListener("unmute", handleTrackUnmuted);
     }
     video.addEventListener("loadedmetadata", scheduleReplay);
+    video.addEventListener("loadeddata", scheduleReplay);
     video.addEventListener("canplay", scheduleReplay);
+    video.addEventListener("stalled", scheduleReplay);
+    video.addEventListener("suspend", scheduleReplay);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleOrientationChange);
 
     return () => {
       cancelled = true;
@@ -108,11 +129,18 @@ function ParticipantVideo({
         videoTrack.removeEventListener("unmute", handleTrackUnmuted);
       }
       video.removeEventListener("loadedmetadata", scheduleReplay);
+      video.removeEventListener("loadeddata", scheduleReplay);
       video.removeEventListener("canplay", scheduleReplay);
+      video.removeEventListener("stalled", scheduleReplay);
+      video.removeEventListener("suspend", scheduleReplay);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleOrientationChange);
       for (const timeoutId of replayTimeouts) {
         window.clearTimeout(timeoutId);
+      }
+      if (replayRafId !== null) {
+        window.cancelAnimationFrame(replayRafId);
       }
     };
   }, [participant.videoStream, participant.videoProducerId, participant.isCameraOff]);

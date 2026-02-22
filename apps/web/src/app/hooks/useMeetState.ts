@@ -50,6 +50,9 @@ export function useMeetState({ initialRoomId }: UseMeetStateOptions) {
     "attendee" | "participant" | "host" | null
   >(null);
   const [webinarLink, setWebinarLink] = useState<string | null>(null);
+  const [webinarSpeakerUserId, setWebinarSpeakerUserId] = useState<string | null>(
+    null,
+  );
 
   return {
     connectionState,
@@ -102,5 +105,7 @@ export function useMeetState({ initialRoomId }: UseMeetStateOptions) {
     setWebinarRole,
     webinarLink,
     setWebinarLink,
+    webinarSpeakerUserId,
+    setWebinarSpeakerUserId,
   };
 }

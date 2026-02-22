@@ -165,6 +165,8 @@ export function MeetScreen({
     setWebinarRole,
     webinarLink,
     setWebinarLink,
+    webinarSpeakerUserId,
+    setWebinarSpeakerUserId,
   } = useMeetState({ initialRoomId });
   const isWebinarAttendee =
     joinMode === "webinar_attendee" || webinarRole === "attendee";
@@ -698,6 +700,7 @@ export function MeetScreen({
     setHostUserId,
     setWebinarConfig,
     setWebinarRole,
+    setWebinarSpeakerUserId,
     isMuted,
     setIsMuted,
     isCameraOff,
@@ -1445,6 +1448,7 @@ export function MeetScreen({
           isTtsDisabled={isTtsDisabled}
           pendingUsersCount={pendingUsers.size}
           webinarConfig={webinarConfig}
+          webinarSpeakerUserId={webinarSpeakerUserId}
         />
       )}
 

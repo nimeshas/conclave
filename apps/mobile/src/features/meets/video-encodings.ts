@@ -1,5 +1,7 @@
 import {
   LOW_VIDEO_MAX_BITRATE,
+  SCREEN_SHARE_MAX_BITRATE,
+  SCREEN_SHARE_MAX_FRAMERATE,
   STANDARD_VIDEO_MAX_BITRATE,
 } from "./constants";
 import type { VideoQuality } from "./types";
@@ -48,5 +50,13 @@ export function buildWebcamSingleLayerEncoding(quality: VideoQuality) {
     maxBitrate:
       quality === "low" ? LOW_VIDEO_MAX_BITRATE : STANDARD_VIDEO_MAX_BITRATE,
     maxFramerate: quality === "low" ? 20 : 24,
+  };
+}
+
+export function buildScreenShareEncoding() {
+  return {
+    maxBitrate: SCREEN_SHARE_MAX_BITRATE,
+    maxFramerate: SCREEN_SHARE_MAX_FRAMERATE,
+    scalabilityMode: "L1T2",
   };
 }

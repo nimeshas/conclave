@@ -43,6 +43,8 @@ export const DEFAULT_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 
 export const STANDARD_VIDEO_MAX_BITRATE = 850000;
 export const LOW_VIDEO_MAX_BITRATE = 250000;
+export const SCREEN_SHARE_MAX_BITRATE = 1700000;
+export const SCREEN_SHARE_MAX_FRAMERATE = 24;
 export const OPUS_MAX_AVERAGE_BITRATE = 64000;
 
 const turnUrlsRaw =
