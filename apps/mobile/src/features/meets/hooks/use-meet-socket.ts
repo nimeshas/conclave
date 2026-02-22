@@ -181,6 +181,7 @@ export function useMeetSocket({
   onSocketReady,
 }: UseMeetSocketOptions) {
   const participantIdsRef = useRef<Set<string>>(new Set([userId]));
+  const serverRoomIdRef = useRef<string | null>(null);
   const isTtsDisabledRef = useRef(isTtsDisabled);
   const lastAuthJoinModeRef = useRef<JoinMode | null>(null);
 
@@ -273,6 +274,7 @@ export function useMeetSocket({
       setHostUserId(null);
       setWebinarRole(null);
       participantIdsRef.current = new Set([userId]);
+      serverRoomIdRef.current = null;
 
       try {
         audioProducerRef.current?.close();
@@ -332,6 +334,7 @@ export function useMeetSocket({
       pendingProducersRef,
       producerMapRef,
       producerTransportRef,
+      serverRoomIdRef,
       screenProducerRef,
       screenShareStreamRef,
       setActiveScreenShareId,
@@ -413,10 +416,13 @@ export function useMeetSocket({
   const isRoomEvent = useCallback(
     (eventRoomId?: string) => {
       if (!eventRoomId) return true;
-      if (!currentRoomIdRef.current) return true;
-      return eventRoomId === currentRoomIdRef.current;
+      if (!currentRoomIdRef.current && !serverRoomIdRef.current) return true;
+      return (
+        eventRoomId === currentRoomIdRef.current ||
+        eventRoomId === serverRoomIdRef.current
+      );
     },
-    [currentRoomIdRef]
+    [currentRoomIdRef, serverRoomIdRef]
   );
 
   const handleProducerClosed = useCallback(
@@ -1152,6 +1158,7 @@ export function useMeetSocket({
                 feedMode: previous?.feedMode ?? "active-speaker",
               }));
               currentRoomIdRef.current = targetRoomId;
+              serverRoomIdRef.current = response.roomId ?? targetRoomId;
               setIsTtsDisabled(response.isTtsDisabled ?? false);
               resolve("waiting");
               return;
@@ -1164,6 +1171,7 @@ export function useMeetSocket({
                 response.existingProducers
               );
               currentRoomIdRef.current = targetRoomId;
+              serverRoomIdRef.current = response.roomId ?? targetRoomId;
               setIsRoomLocked(response.isLocked ?? false);
               setIsTtsDisabled(response.isTtsDisabled ?? false);
               setHostUserId(response.hostUserId ?? null);
@@ -1248,6 +1256,7 @@ export function useMeetSocket({
       setWebinarRole,
       setWebinarConfig,
       currentRoomIdRef,
+      serverRoomIdRef,
       deviceRef,
       createProducerTransport,
       createConsumerTransport,
@@ -2205,6 +2214,7 @@ export function useMeetSocket({
       setConnectionState("connecting");
       primeAudioOutput();
       refs.intentionalDisconnectRef.current = false;
+      serverRoomIdRef.current = null;
       setRoomId(targetRoomId);
       if (joinMode === "webinar_attendee") {
         setIsAdmin(false);
@@ -2296,6 +2306,7 @@ export function useMeetSocket({
       requestWebinarInviteCode,
       refs.abortControllerRef,
       refs.intentionalDisconnectRef,
+      serverRoomIdRef,
       setConnectionState,
       setLocalStream,
       setMeetError,

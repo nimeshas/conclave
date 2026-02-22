@@ -585,12 +585,52 @@ export default function MeetsClient({
     ignoreInputs: true,
   });
 
+  const inviteCodeResolverRef = useRef<((value: string | null) => void) | null>(
+    null,
+  );
+  const [isInviteCodePromptOpen, setIsInviteCodePromptOpen] = useState(false);
+  const [inviteCodeInput, setInviteCodeInput] = useState("");
+  const [inviteCodePromptError, setInviteCodePromptError] = useState<
+    string | null
+  >(null);
+
+  const resolveInviteCodePrompt = useCallback((value: string | null) => {
+    inviteCodeResolverRef.current?.(value);
+    inviteCodeResolverRef.current = null;
+    setIsInviteCodePromptOpen(false);
+    setInviteCodeInput("");
+    setInviteCodePromptError(null);
+  }, []);
+
   const requestWebinarInviteCode = useCallback(async () => {
-    if (typeof window === "undefined") return null;
-    const value = window.prompt("Enter webinar invite code");
-    if (!value) return null;
-    const normalized = value.trim();
-    return normalized.length > 0 ? normalized : null;
+    return new Promise<string | null>((resolve) => {
+      inviteCodeResolverRef.current = resolve;
+      setInviteCodeInput("");
+      setInviteCodePromptError(null);
+      setIsInviteCodePromptOpen(true);
+    });
+  }, []);
+
+  const handleSubmitInviteCodePrompt = useCallback(() => {
+    const trimmed = inviteCodeInput.trim();
+    if (!trimmed) {
+      setInviteCodePromptError("Invite code is required.");
+      return;
+    }
+    resolveInviteCodePrompt(trimmed);
+  }, [inviteCodeInput, resolveInviteCodePrompt]);
+
+  const handleCancelInviteCodePrompt = useCallback(() => {
+    resolveInviteCodePrompt(null);
+  }, [resolveInviteCodePrompt]);
+
+  useEffect(() => {
+    return () => {
+      if (inviteCodeResolverRef.current) {
+        inviteCodeResolverRef.current(null);
+        inviteCodeResolverRef.current = null;
+      }
+    };
   }, []);
 
   const socket = useMeetSocket({
@@ -702,7 +742,6 @@ export default function MeetsClient({
     }
   }, [isAdminFlag, connectionState, refreshRooms]);
 
-  const joinRoom = socket.joinRoom;
   const joinRoomById = socket.joinRoomById;
   const getWebinarConfig = socket.getWebinarConfig;
 
@@ -892,6 +931,62 @@ export default function MeetsClient({
       {content}
     </AppsProvider>
   );
+  const inviteCodePrompt = isInviteCodePromptOpen ? (
+    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/75 px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-2xl">
+        <h2 className="text-sm font-semibold text-[#FEFCD9]">
+          Webinar Invite Code
+        </h2>
+        <p className="mt-1 text-xs text-[#FEFCD9]/60">
+          Enter the invite code to join this webinar.
+        </p>
+        <input
+          value={inviteCodeInput}
+          onChange={(event) => {
+            setInviteCodeInput(event.target.value);
+            if (inviteCodePromptError) {
+              setInviteCodePromptError(null);
+            }
+          }}
+          autoFocus
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="Invite code"
+          className="mt-4 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-[#FEFCD9] outline-none focus:border-[#FEFCD9]/35"
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              handleSubmitInviteCodePrompt();
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              handleCancelInviteCodePrompt();
+            }
+          }}
+        />
+        {inviteCodePromptError ? (
+          <p className="mt-2 text-xs text-[#F95F4A]">{inviteCodePromptError}</p>
+        ) : null}
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={handleCancelInviteCodePrompt}
+            className="rounded-xl border border-white/15 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-[#FEFCD9]/70 transition-colors hover:border-white/25 hover:text-[#FEFCD9]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmitInviteCodePrompt}
+            className="rounded-xl bg-[#F95F4A] px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-white transition-opacity hover:opacity-90"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   if (connectionState === "waiting") {
     const waitingTitle = waitingMessage ?? "Waiting for host to let you in";
@@ -1030,6 +1125,7 @@ export default function MeetsClient({
           onGenerateWebinarLink={socket.generateWebinarLink}
           onRotateWebinarLink={socket.rotateWebinarLink}
         />
+        {inviteCodePrompt}
       </div>,
     );
   }
@@ -1189,6 +1285,7 @@ export default function MeetsClient({
         onGenerateWebinarLink={socket.generateWebinarLink}
         onRotateWebinarLink={socket.rotateWebinarLink}
       />
+      {inviteCodePrompt}
     </div>,
   );
 }

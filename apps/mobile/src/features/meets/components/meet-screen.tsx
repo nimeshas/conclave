@@ -576,12 +576,6 @@ export function MeetScreen({
   }, []);
 
   const requestWebinarInviteCode = useCallback(async () => {
-    if (Platform.OS === "web" && typeof globalThis.prompt === "function") {
-      const result = globalThis.prompt("Enter webinar invite code") ?? "";
-      const trimmed = result.trim();
-      return trimmed.length > 0 ? trimmed : null;
-    }
-
     return new Promise<string | null>((resolve) => {
       inviteCodeResolverRef.current = resolve;
       setInviteCodeInput("");

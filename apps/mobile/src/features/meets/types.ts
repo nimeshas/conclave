@@ -106,6 +106,7 @@ export interface ProducerInfo {
 export type VideoQuality = "low" | "standard";
 
 export interface JoinRoomResponse {
+  roomId?: string;
   rtpCapabilities: RtpCapabilities;
   existingProducers: ProducerInfo[];
   status?: "waiting" | "joined";
