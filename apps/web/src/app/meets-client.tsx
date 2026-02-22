@@ -114,6 +114,7 @@ export type MeetsClientProps = {
   ) => Promise<{
     token: string;
     sfuUrl: string;
+    iceServers?: RTCIceServer[];
   }>;
   joinMode?: JoinMode;
   autoJoinOnMount?: boolean;

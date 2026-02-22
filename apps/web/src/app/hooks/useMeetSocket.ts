@@ -45,6 +45,12 @@ import {
 } from "../lib/video-encodings";
 import type { MeetRefs } from "./useMeetRefs";
 
+type JoinInfo = {
+  token: string;
+  sfuUrl: string;
+  iceServers?: RTCIceServer[];
+};
+
 interface UseMeetSocketOptions {
   refs: MeetRefs;
   roomId: string;
@@ -61,10 +67,7 @@ interface UseMeetSocketOptions {
       isHost?: boolean;
       joinMode?: JoinMode;
     },
-  ) => Promise<{
-    token: string;
-    sfuUrl: string;
-  }>;
+  ) => Promise<JoinInfo>;
   joinMode?: JoinMode;
   requestWebinarInviteCode?: () => Promise<string | null>;
   ghostEnabled: boolean;
@@ -125,9 +128,7 @@ interface UseMeetSocketOptions {
     Device: typeof import("mediasoup-client").Device | null;
     io: typeof import("socket.io-client").io | null;
     isReady: boolean;
-    getCachedToken?: (
-      roomId: string,
-    ) => { token: string; sfuUrl: string } | null;
+    getCachedToken?: (roomId: string) => JoinInfo | null;
   };
   onSocketReady?: (socket: Socket | null) => void;
   bypassMediaPermissions?: boolean;
@@ -188,6 +189,7 @@ export function useMeetSocket({
 }: UseMeetSocketOptions) {
   const participantIdsRef = useRef<Set<string>>(new Set([userId]));
   const serverRoomIdRef = useRef<string | null>(null);
+  const runtimeIceServersRef = useRef<RTCIceServer[] | null>(null);
   const consumeRetryAttemptsRef = useRef<Map<string, number>>(new Map());
   const consumeProducerRef = useRef<
     (producerInfo: ProducerInfo) => Promise<void>
@@ -245,6 +247,14 @@ export function useMeetSocket({
   useEffect(() => {
     isTtsDisabledRef.current = isTtsDisabled;
   }, [isTtsDisabled]);
+
+  const resolveIceServers = useCallback((): RTCIceServer[] | undefined => {
+    const runtimeIceServers = runtimeIceServersRef.current;
+    if (runtimeIceServers && runtimeIceServers.length > 0) {
+      return runtimeIceServers;
+    }
+    return MEETS_ICE_SERVERS.length > 0 ? MEETS_ICE_SERVERS : undefined;
+  }, []);
 
   const cleanupRoomResources = useCallback(
     (options?: { resetRoomId?: boolean }) => {
@@ -579,9 +589,7 @@ export function useMeetSocket({
 
             const transport = device.createSendTransport({
               ...response,
-              iceServers: MEETS_ICE_SERVERS.length
-                ? MEETS_ICE_SERVERS
-                : undefined,
+              iceServers: resolveIceServers(),
             });
 
             transport.on(
@@ -712,6 +720,7 @@ export function useMeetSocket({
       intentionalDisconnectRef,
       producerTransportDisconnectTimeoutRef,
       attemptIceRestart,
+      resolveIceServers,
     ],
   );
 
@@ -728,9 +737,7 @@ export function useMeetSocket({
 
             const transport = device.createRecvTransport({
               ...response,
-              iceServers: MEETS_ICE_SERVERS.length
-                ? MEETS_ICE_SERVERS
-                : undefined,
+              iceServers: resolveIceServers(),
             });
 
             transport.on(
@@ -816,6 +823,7 @@ export function useMeetSocket({
       intentionalDisconnectRef,
       consumerTransportDisconnectTimeoutRef,
       attemptIceRestart,
+      resolveIceServers,
     ],
   );
 
@@ -1409,10 +1417,15 @@ export function useMeetSocket({
                     joinMode,
                   });
 
-            const [{ token, sfuUrl }, { io }] = await Promise.all([
+            const [{ token, sfuUrl, iceServers }, { io }] = await Promise.all([
               tokenPromise,
               socketIoPromise,
             ]);
+
+            if (Array.isArray(iceServers)) {
+              runtimeIceServersRef.current =
+                iceServers.length > 0 ? iceServers : null;
+            }
 
             const socket = io(sfuUrl, {
               transports: ["websocket", "polling"],

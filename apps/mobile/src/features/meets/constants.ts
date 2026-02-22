@@ -70,7 +70,15 @@ export const MEETS_ICE_SERVERS: RTCIceServer[] = (() => {
   const credential =
     process.env.EXPO_PUBLIC_TURN_PASSWORD || process.env.NEXT_PUBLIC_TURN_PASSWORD;
 
-  if (username && credential) {
+  if ((username && !credential) || (!username && credential)) {
+    console.warn(
+      "[Meets] TURN credentials are partially configured. Set both TURN username and password.",
+    );
+  } else if (!username && !credential && urls.some((url) => /^turns?:/i.test(url))) {
+    console.warn(
+      "[Meets] TURN URLs are configured without credentials. Relay candidates may fail if your TURN server requires auth.",
+    );
+  } else if (username && credential) {
     iceServer.username = username;
     iceServer.credential = credential;
   }
