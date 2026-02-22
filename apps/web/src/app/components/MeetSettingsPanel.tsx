@@ -137,7 +137,7 @@ export default function MeetSettingsPanel({
                 isTtsDisabled ? "text-amber-300" : "text-[#FEFCD9]/60"
               }`}
             />
-            <span className="text-[#FEFCD9]">Disable text-to-speech</span>
+            <span className="text-[#FEFCD9]">Disable TTS</span>
           </div>
           <span
             className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
