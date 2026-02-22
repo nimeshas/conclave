@@ -140,13 +140,6 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
             return;
           }
 
-          if (!webinarConfig.publicAccess && !webinarConfig.inviteCodeHash) {
-            respond(callback, {
-              error: "Host must set an invite code before disabling public access.",
-            });
-            return;
-          }
-
           if (webinarConfig.inviteCodeHash) {
             const inviteCode = data?.webinarInviteCode?.trim() || "";
             if (!inviteCode) {
