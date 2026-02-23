@@ -117,12 +117,6 @@ export const registerAdminHandlers = (
     }
 
     const currentRoom = context.currentRoom;
-    const actorUserKey = context.currentUserKey;
-    if (!actorUserKey) {
-      respond(cb, { error: "Admin identity missing" });
-      return;
-    }
-
     const targetClient = currentRoom.getClient(targetId);
     if (!targetClient) {
       respond(cb, { error: "User not found" });

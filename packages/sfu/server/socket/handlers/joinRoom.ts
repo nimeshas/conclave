@@ -290,7 +290,7 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
         if (
           !isWebinarAttendeeJoin &&
           room.isLocked &&
-          !isPrimaryHost &&
+          !isAdminJoin &&
           !room.isLockedAllowed(userKey)
         ) {
           Logger.info(
