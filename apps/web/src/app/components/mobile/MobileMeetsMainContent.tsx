@@ -330,6 +330,12 @@ function MobileMeetsMainContent({
       }),
     [isChatOpen, setIsParticipantsOpen, toggleChat],
   );
+  const handleOpenParticipants = useCallback(() => {
+    setIsParticipantsOpen(true);
+    if (isChatOpen) {
+      toggleChat();
+    }
+  }, [isChatOpen, setIsParticipantsOpen, toggleChat]);
 
   const handleCloseParticipants = useCallback(
     () => setIsParticipantsOpen(false),
@@ -844,6 +850,7 @@ function MobileMeetsMainContent({
             activeSpeakerId={activeSpeakerId}
             currentUserId={currentUserId}
             audioOutputDeviceId={audioOutputDeviceId}
+            onOpenParticipantsPanel={handleOpenParticipants}
             getDisplayName={resolveDisplayName}
           />
         )}

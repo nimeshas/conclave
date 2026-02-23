@@ -20,7 +20,6 @@ import type {
 } from "../types";
 import { isSystemUserId } from "../utils";
 import { useDeviceLayout, type DeviceLayout } from "../hooks/use-device-layout";
-import { useSmartParticipantOrder } from "../hooks/use-smart-participant-order";
 import { ControlsBar } from "./controls-bar";
 import { ParticipantTile } from "./participant-tile";
 import { FlatList, Text, Pressable } from "@/tw";
@@ -43,6 +42,7 @@ const COLORS = {
 const MEETING_LINK_BASE = "https://conclave.acmvit.in";
 const COPY_RESET_DELAY_MS = 1500;
 const GRID_HORIZONTAL_PADDING = 32;
+const MAX_GRID_TILES = 16;
 
 const getMaxGridColumns = (layout: DeviceLayout, participantCount: number) => {
   if (layout === "large") {
@@ -107,6 +107,17 @@ type PipCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 const OBSERVER_PIP_MARGIN = 12;
 const OBSERVER_PIP_WIDTH = 132;
 const OBSERVER_PIP_HEIGHT = 84;
+
+type OverflowGridItem = {
+  itemType: "overflow";
+  id: string;
+  hiddenCount: number;
+};
+
+type GridItem = Participant | OverflowGridItem;
+
+const isOverflowItem = (item: GridItem): item is OverflowGridItem =>
+  "itemType" in item && item.itemType === "overflow";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -272,10 +283,125 @@ export function CallScreen({
     const hasLocal = list.some((participant) => participant.userId === localParticipant.userId);
     return hasLocal ? list : [localParticipant, ...list];
   }, [participants, localParticipant]);
-  const participantList = useSmartParticipantOrder(baseParticipantList, activeSpeakerId);
+
+  const stableOrderRef = useRef<string[]>([]);
+  const resolvedLocalParticipant = useMemo(
+    () =>
+      baseParticipantList.find(
+        (participant) => participant.userId === localParticipant.userId
+      ) ?? localParticipant,
+    [baseParticipantList, localParticipant]
+  );
+  const remoteParticipants = useMemo(
+    () =>
+      baseParticipantList.filter(
+        (participant) => participant.userId !== resolvedLocalParticipant.userId
+      ),
+    [baseParticipantList, resolvedLocalParticipant.userId]
+  );
+  const stableRemoteParticipants = useMemo(() => {
+    const participantMap = new Map(
+      remoteParticipants.map((participant) => [participant.userId, participant])
+    );
+    const nextOrder: string[] = [];
+    const seen = new Set<string>();
+
+    for (const userId of stableOrderRef.current) {
+      if (participantMap.has(userId)) {
+        nextOrder.push(userId);
+        seen.add(userId);
+      }
+    }
+
+    for (const participant of remoteParticipants) {
+      if (!seen.has(participant.userId)) {
+        nextOrder.push(participant.userId);
+        seen.add(participant.userId);
+      }
+    }
+
+    return nextOrder
+      .map((userId) => participantMap.get(userId))
+      .filter((participant): participant is Participant => Boolean(participant));
+  }, [remoteParticipants]);
+
+  useEffect(() => {
+    stableOrderRef.current = stableRemoteParticipants.map(
+      (participant) => participant.userId
+    );
+  }, [stableRemoteParticipants]);
+
+  const participantList = useMemo(
+    () => [resolvedLocalParticipant, ...stableRemoteParticipants],
+    [resolvedLocalParticipant, stableRemoteParticipants]
+  );
   const participantOrderKey = useMemo(
     () => participantList.map((participant) => participant.userId).join("|"),
     [participantList]
+  );
+
+  const maxRemoteWithoutOverflow = Math.max(0, MAX_GRID_TILES - 1);
+  const hasOverflow = stableRemoteParticipants.length > maxRemoteWithoutOverflow;
+  const maxVisibleRemoteParticipants = hasOverflow
+    ? Math.max(0, MAX_GRID_TILES - 2)
+    : maxRemoteWithoutOverflow;
+  const visibleRemoteParticipants = useMemo(() => {
+    if (maxVisibleRemoteParticipants <= 0) {
+      return [];
+    }
+
+    if (stableRemoteParticipants.length <= maxVisibleRemoteParticipants) {
+      return stableRemoteParticipants;
+    }
+
+    const baseVisible = stableRemoteParticipants.slice(0, maxVisibleRemoteParticipants);
+
+    if (!activeSpeakerId || activeSpeakerId === resolvedLocalParticipant.userId) {
+      return baseVisible;
+    }
+
+    if (baseVisible.some((participant) => participant.userId === activeSpeakerId)) {
+      return baseVisible;
+    }
+
+    const activeParticipant = stableRemoteParticipants.find(
+      (participant) => participant.userId === activeSpeakerId
+    );
+    if (!activeParticipant) {
+      return baseVisible;
+    }
+
+    const nextVisible = baseVisible.slice(0, maxVisibleRemoteParticipants - 1);
+    nextVisible.push(activeParticipant);
+    return nextVisible;
+  }, [
+    stableRemoteParticipants,
+    activeSpeakerId,
+    resolvedLocalParticipant.userId,
+    maxVisibleRemoteParticipants,
+  ]);
+  const hiddenRemoteCount = Math.max(
+    0,
+    stableRemoteParticipants.length - visibleRemoteParticipants.length
+  );
+  const showOverflowTile = hiddenRemoteCount > 0;
+  const gridItems = useMemo<GridItem[]>(() => {
+    const items: GridItem[] = [resolvedLocalParticipant, ...visibleRemoteParticipants];
+    if (showOverflowTile) {
+      items.push({
+        itemType: "overflow",
+        id: "overflow",
+        hiddenCount: hiddenRemoteCount,
+      });
+    }
+    return items;
+  }, [resolvedLocalParticipant, visibleRemoteParticipants, showOverflowTile, hiddenRemoteCount]);
+  const gridOrderKey = useMemo(
+    () =>
+      gridItems
+        .map((item) => (isOverflowItem(item) ? item.id : item.userId))
+        .join("|"),
+    [gridItems]
   );
   const webinarParticipants = useMemo(
     () =>
@@ -505,7 +631,7 @@ export function CallScreen({
   const safePaddingRight = Math.max(isTablet ? 12 : 6, insets.right);
   const availableWidth = width - safePaddingLeft - safePaddingRight;
   const gridGap = isTablet ? 16 : 12;
-  const participantCountForLayout = Math.max(participantList.length, 1);
+  const participantCountForLayout = Math.max(gridItems.length, 1);
   const controlsReservedHeight = 140 + insets.bottom;
   const gridTopPadding =
     layout === "compact" && participantCountForLayout === 2 ? 16 : 8;
@@ -644,7 +770,8 @@ export function CallScreen({
     });
   }, [
     participantOrderKey,
-    participantList.length,
+    gridOrderKey,
+    gridItems.length,
     columns,
     tileStyle.height,
     tileStyle.width,
@@ -929,11 +1056,13 @@ export function CallScreen({
             }}
           >
             <FlatList
-              data={participantList}
-              extraData={participantOrderKey}
+              data={gridItems}
+              extraData={gridOrderKey}
               key={`${columns}`}
               numColumns={columns}
-              keyExtractor={(item) => item.userId}
+              keyExtractor={(item) =>
+                isOverflowItem(item) ? item.id : item.userId
+              }
               style={styles.grid}
               contentContainerStyle={[
                 styles.gridContent,
@@ -941,17 +1070,35 @@ export function CallScreen({
                 isTwoUp && styles.gridContentTwoUp,
               ]}
               columnWrapperStyle={columns > 1 ? (isTablet ? columnWrapperStyleTablet : columnWrapperStyle) : undefined}
-              renderItem={({ item }) => (
-                <RNView style={tileStyle}>
-                  <ParticipantTile
-                    participant={item}
-                    displayName={resolveDisplayName(item.userId)}
-                    isLocal={item.userId === localParticipant.userId}
-                    mirror={item.userId === localParticipant.userId ? isMirrorCamera : false}
-                    isActiveSpeaker={activeSpeakerId === item.userId}
-                  />
-                </RNView>
-              )}
+              renderItem={({ item }) => {
+                if (isOverflowItem(item)) {
+                  return (
+                    <RNView style={tileStyle}>
+                      <Pressable
+                        onPress={onToggleParticipants}
+                        style={styles.overflowTile}
+                      >
+                        <Text style={styles.overflowCount}>
+                          +{item.hiddenCount}
+                        </Text>
+                        <Text style={styles.overflowLabel}>MORE</Text>
+                      </Pressable>
+                    </RNView>
+                  );
+                }
+
+                return (
+                  <RNView style={tileStyle}>
+                    <ParticipantTile
+                      participant={item}
+                      displayName={resolveDisplayName(item.userId)}
+                      isLocal={item.userId === localParticipant.userId}
+                      mirror={item.userId === localParticipant.userId ? isMirrorCamera : false}
+                      isActiveSpeaker={activeSpeakerId === item.userId}
+                    />
+                  </RNView>
+                );
+              }}
             />
           </RNView>
         )}
@@ -1110,6 +1257,30 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "space-between",
     paddingTop: 16,
+  },
+  overflowTile: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: COLORS.creamFaint,
+    backgroundColor: "#0d0e0d",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  overflowCount: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: COLORS.cream,
+    fontFamily: "PolySans",
+  },
+  overflowLabel: {
+    marginTop: 6,
+    fontSize: 10,
+    letterSpacing: 2.6,
+    textTransform: "uppercase",
+    color: COLORS.creamMuted,
+    fontFamily: "PolySans-Mono",
   },
   presentationContainer: {
     flex: 1,

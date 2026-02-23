@@ -1,8 +1,7 @@
 "use client";
 
 import { Hand, MicOff, VenetianMask } from "lucide-react";
-import { memo, useEffect, useRef } from "react";
-import { useSmartParticipantOrder } from "../../hooks/useSmartParticipantOrder";
+import { memo, useEffect, useMemo, useRef } from "react";
 import type { Participant } from "../../lib/types";
 import { isSystemUserId, truncateDisplayName } from "../../lib/utils";
 
@@ -18,8 +17,11 @@ interface MobileGridLayoutProps {
   activeSpeakerId: string | null;
   currentUserId: string;
   audioOutputDeviceId?: string;
+  onOpenParticipantsPanel?: () => void;
   getDisplayName: (userId: string) => string;
 }
+
+const MAX_GRID_TILES = 16;
 
 function MobileGridLayout({
   localStream,
@@ -32,9 +34,11 @@ function MobileGridLayout({
   isMirrorCamera,
   activeSpeakerId,
   currentUserId,
+  onOpenParticipantsPanel,
   getDisplayName,
 }: MobileGridLayoutProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const stableOrderRef = useRef<string[]>([]);
   const isLocalActiveSpeaker = activeSpeakerId === currentUserId;
 
   useEffect(() => {
@@ -49,13 +53,94 @@ function MobileGridLayout({
     }
   }, [localStream]);
 
-  const participantArray = useSmartParticipantOrder(
-    Array.from(participants.values()).filter(
-      (participant) => !isSystemUserId(participant.userId)
-    ),
-    activeSpeakerId
+  const remoteParticipants = useMemo(
+    () =>
+      Array.from(participants.values()).filter(
+        (participant) =>
+          !isSystemUserId(participant.userId) &&
+          participant.userId !== currentUserId
+      ),
+    [participants, currentUserId]
   );
-  const totalCount = participantArray.length + 1;
+
+  const stableRemoteParticipants = useMemo(() => {
+    const participantMap = new Map(
+      remoteParticipants.map((participant) => [participant.userId, participant])
+    );
+    const nextOrder: string[] = [];
+    const seen = new Set<string>();
+
+    for (const userId of stableOrderRef.current) {
+      if (participantMap.has(userId)) {
+        nextOrder.push(userId);
+        seen.add(userId);
+      }
+    }
+
+    for (const participant of remoteParticipants) {
+      if (!seen.has(participant.userId)) {
+        nextOrder.push(participant.userId);
+        seen.add(participant.userId);
+      }
+    }
+
+    return nextOrder
+      .map((userId) => participantMap.get(userId))
+      .filter((participant): participant is Participant => Boolean(participant));
+  }, [remoteParticipants]);
+
+  useEffect(() => {
+    stableOrderRef.current = stableRemoteParticipants.map(
+      (participant) => participant.userId
+    );
+  }, [stableRemoteParticipants]);
+
+  const maxRemoteWithoutOverflow = Math.max(0, MAX_GRID_TILES - 1);
+  const hasOverflow = stableRemoteParticipants.length > maxRemoteWithoutOverflow;
+  const maxVisibleRemoteParticipants = hasOverflow
+    ? Math.max(0, MAX_GRID_TILES - 2)
+    : maxRemoteWithoutOverflow;
+  const visibleParticipants = useMemo(() => {
+    if (maxVisibleRemoteParticipants <= 0) {
+      return [];
+    }
+
+    if (stableRemoteParticipants.length <= maxVisibleRemoteParticipants) {
+      return stableRemoteParticipants;
+    }
+
+    const baseVisible = stableRemoteParticipants.slice(0, maxVisibleRemoteParticipants);
+
+    if (!activeSpeakerId || activeSpeakerId === currentUserId) {
+      return baseVisible;
+    }
+
+    if (baseVisible.some((participant) => participant.userId === activeSpeakerId)) {
+      return baseVisible;
+    }
+
+    const activeParticipant = stableRemoteParticipants.find(
+      (participant) => participant.userId === activeSpeakerId
+    );
+    if (!activeParticipant) {
+      return baseVisible;
+    }
+
+    const nextVisible = baseVisible.slice(0, maxVisibleRemoteParticipants - 1);
+    nextVisible.push(activeParticipant);
+    return nextVisible;
+  }, [
+    stableRemoteParticipants,
+    activeSpeakerId,
+    currentUserId,
+    maxVisibleRemoteParticipants,
+  ]);
+  const hiddenParticipantsCount = Math.max(
+    0,
+    stableRemoteParticipants.length - visibleParticipants.length
+  );
+  const showOverflowTile = hiddenParticipantsCount > 0;
+  const totalCount = visibleParticipants.length + 1 + (showOverflowTile ? 1 : 0);
   const localDisplayName = truncateDisplayName(
     getDisplayName(currentUserId) || userEmail || "You",
     totalCount <= 2 ? 16 : totalCount <= 4 ? 12 : 10
@@ -137,7 +222,7 @@ function MobileGridLayout({
       </div>
 
       {/* Participant tiles */}
-      {participantArray.map((participant) => (
+      {visibleParticipants.map((participant) => (
         <ParticipantTile
           key={participant.userId}
           participant={participant}
@@ -149,6 +234,29 @@ function MobileGridLayout({
           totalCount={totalCount}
         />
       ))}
+
+      {showOverflowTile ? (
+        <button
+          type="button"
+          onClick={onOpenParticipantsPanel}
+          disabled={!onOpenParticipantsPanel}
+          aria-label={`View ${hiddenParticipantsCount} more participants`}
+          className={`mobile-tile flex flex-col items-center justify-center border-dashed border-[#FEFCD9]/20 bg-[#0d0e0d]/85 text-[#FEFCD9] ${
+            onOpenParticipantsPanel ? "cursor-pointer" : "opacity-70"
+          }`}
+          style={{ fontFamily: "'PolySans Trial', sans-serif" }}
+        >
+          <div className="text-2xl font-semibold text-[#FEFCD9]">
+            +{hiddenParticipantsCount}
+          </div>
+          <div
+            className="mt-1 text-[10px] uppercase tracking-[0.35em] text-[#FEFCD9]/60"
+            style={{ fontFamily: "'PolySans Mono', monospace" }}
+          >
+            More
+          </div>
+        </button>
+      ) : null}
     </div>
   );
 }
