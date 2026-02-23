@@ -161,6 +161,12 @@ export interface WebinarFeedChangedNotification {
   producers: ProducerInfo[];
 }
 
+export interface ServerRestartNotification {
+  roomId?: string;
+  message?: string;
+  reconnecting?: boolean;
+}
+
 export interface TransportResponse {
   id: string;
   iceParameters: IceParameters;
