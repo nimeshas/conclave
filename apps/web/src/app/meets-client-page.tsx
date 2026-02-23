@@ -105,10 +105,6 @@ export default function MeetsClientPage({
     return Array.isArray(data?.rooms) ? data.rooms : [];
   }, []);
 
-  const getRoomsForRedirect = useCallback(
-    async (_roomId: string) => getRooms(),
-    [getRooms]
-  );
 
   const resolvedInitialRoomId =
     initialRoomId ?? (isPublicClient ? "" : "default-room");
@@ -126,7 +122,6 @@ export default function MeetsClientPage({
         hideJoinUI={hideJoinUI}
         getJoinInfo={getJoinInfo}
         getRooms={getRooms}
-        getRoomsForRedirect={getRoomsForRedirect}
         reactionAssets={reactionAssets}
         user={defaultUser}
         isAdmin={resolvedIsAdmin}

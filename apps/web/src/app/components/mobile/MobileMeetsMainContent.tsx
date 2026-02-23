@@ -1,6 +1,6 @@
 "use client";
 
-import { Ghost, RefreshCw } from "lucide-react";
+import { Ghost, RefreshCw, Users } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, PointerEvent, SetStateAction } from "react";
 import type { Socket } from "socket.io-client";
@@ -34,6 +34,7 @@ import SystemAudioPlayers from "../SystemAudioPlayers";
 import { isSystemUserId } from "../../lib/utils";
 import { useApps } from "@conclave/apps-sdk";
 import DevPlaygroundLayout from "../DevPlaygroundLayout";
+import DevMeetToolsPanel from "../DevMeetToolsPanel";
 import ParticipantVideo from "../ParticipantVideo";
 
 interface MobileMeetsMainContentProps {
@@ -684,18 +685,26 @@ function MobileMeetsMainContent({
               {roomId.toUpperCase()}
             </span>
           </div>
-          <div className="mobile-glass-soft mobile-pill px-3 py-1">
-            <span
-              className="text-[10px] text-[#FEFCD9]/55 uppercase tracking-[0.2em]"
-              style={{ fontFamily: "'PolySans Mono', monospace" }}
-            >
-              {isWebinarAttendee
-                ? `${webinarConfig?.attendeeCount ?? 0} watching`
-                : `${visibleParticipantCount + 1} in call`}
-            </span>
-          </div>
         </div>
         <div className="flex items-center gap-2">
+          {!isWebinarAttendee && (
+            <button
+              type="button"
+              onClick={handleOpenParticipants}
+              className="mobile-glass mobile-pill px-3 py-2 flex items-center gap-2 text-[#FEFCD9]"
+              aria-label="Open participants panel"
+            >
+              <Users className="w-3.5 h-3.5 text-[#FEFCD9]/70" />
+              <span
+                className="text-[11px] font-medium text-[#FEFCD9] uppercase tracking-[0.2em]"
+                style={{ fontFamily: "'PolySans Mono', monospace" }}
+              >
+                {isWebinarAttendee
+                  ? `${webinarConfig?.attendeeCount ?? 0}`
+                  : `${visibleParticipantCount + 1}`}
+              </span>
+            </button>
+          )}
           {isScreenSharing && (
             <div className="mobile-glass-soft mobile-pill px-2.5 py-1 flex items-center gap-1 text-[#F95F4A] text-[9px] uppercase tracking-[0.2em] font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-[#F95F4A] animate-pulse" />
@@ -723,6 +732,9 @@ function MobileMeetsMainContent({
           reactions={reactions}
           getDisplayName={resolveDisplayName}
         />
+      )}
+      {isDevPlaygroundEnabled && !isWebinarAttendee && (
+        <DevMeetToolsPanel roomId={roomId} />
       )}
 
       {/* Main content area - with padding for controls */}

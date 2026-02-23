@@ -21,7 +21,7 @@ interface MobileGridLayoutProps {
   getDisplayName: (userId: string) => string;
 }
 
-const MAX_GRID_TILES = 16;
+const MAX_GRID_TILES = 8;
 
 function MobileGridLayout({
   localStream,
@@ -97,9 +97,7 @@ function MobileGridLayout({
 
   const maxRemoteWithoutOverflow = Math.max(0, MAX_GRID_TILES - 1);
   const hasOverflow = stableRemoteParticipants.length > maxRemoteWithoutOverflow;
-  const maxVisibleRemoteParticipants = hasOverflow
-    ? Math.max(0, MAX_GRID_TILES - 2)
-    : maxRemoteWithoutOverflow;
+  const maxVisibleRemoteParticipants = maxRemoteWithoutOverflow;
   const visibleParticipants = useMemo(() => {
     if (maxVisibleRemoteParticipants <= 0) {
       return [];

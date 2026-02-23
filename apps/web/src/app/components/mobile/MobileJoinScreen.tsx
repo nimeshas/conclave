@@ -667,36 +667,38 @@ function MobileJoinScreen({
       {/* Bottom controls */}
       <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-[calc(12px+env(safe-area-inset-bottom))]">
         <div className="flex flex-col gap-3">
-        {!isRoutedRoom && (
-          <div className="flex mobile-glass mobile-pill p-1">
-            <button
-              onClick={() => {
-                setActiveTab("new");
-                onIsAdminChange(true);
-              }}
-              className={`flex-1 py-2.5 text-xs uppercase tracking-[0.25em] rounded-full transition-all ${activeTab === "new"
+        <div className="flex mobile-glass mobile-pill p-1">
+          <button
+            onClick={() => {
+              setActiveTab("new");
+              onIsAdminChange(true);
+            }}
+            className={`flex-1 py-2.5 text-xs uppercase tracking-[0.25em] rounded-full transition-all ${
+              activeTab === "new"
                 ? "bg-[#F95F4A] text-white"
                 : "text-[#FEFCD9]/50"
-                }`}
-              style={{ fontFamily: "'PolySans Mono', monospace" }}
-            >
-              New Meeting
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("join");
-                onIsAdminChange(false);
-              }}
-              className={`flex-1 py-2.5 text-xs uppercase tracking-[0.25em] rounded-full transition-all ${activeTab === "join"
+            }`}
+            style={{ fontFamily: "'PolySans Mono', monospace" }}
+            disabled={isRoutedRoom}
+            aria-disabled={isRoutedRoom}
+          >
+            New Meeting
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("join");
+              onIsAdminChange(false);
+            }}
+            className={`flex-1 py-2.5 text-xs uppercase tracking-[0.25em] rounded-full transition-all ${
+              activeTab === "join"
                 ? "bg-[#F95F4A] text-white"
                 : "text-[#FEFCD9]/50"
-                }`}
-              style={{ fontFamily: "'PolySans Mono', monospace" }}
-            >
-              Join
-            </button>
-          </div>
-        )}
+            } ${isRoutedRoom ? "opacity-60" : ""}`}
+            style={{ fontFamily: "'PolySans Mono', monospace" }}
+          >
+            Join
+          </button>
+        </div>
 
         <div className="mobile-glass-soft mobile-pill p-1 h-[52px]">
           {activeTab === "join" || isRoutedRoom ? (

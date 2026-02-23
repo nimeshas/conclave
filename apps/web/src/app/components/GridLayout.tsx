@@ -528,7 +528,7 @@ const OverflowGalleryTile = memo(function OverflowGalleryTile({
           </div>
         )}
         <div
-          className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2 rounded-full border border-[#FEFCD9]/10 bg-black/55 px-2 py-1 text-[10px] uppercase tracking-wide text-[#FEFCD9]/80"
+          className="absolute bottom-2 left-2 flex max-w-[80%] items-center gap-2 rounded-full border border-[#FEFCD9]/10 bg-black/55 px-2 py-1 text-[10px] uppercase tracking-wide text-[#FEFCD9]/80"
           style={{ fontFamily: "'PolySans Mono', monospace" }}
         >
           <span className="truncate">{tileLabel}</span>

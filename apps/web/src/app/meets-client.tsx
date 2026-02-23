@@ -20,7 +20,7 @@ import MeetsHeader from "./components/MeetsHeader";
 import MeetsMainContent from "./components/MeetsMainContent";
 import MeetsWaitingScreen from "./components/MeetsWaitingScreen";
 import MobileMeetsMainContent from "./components/mobile/MobileMeetsMainContent";
-import type { ParticipantsPanelGetRooms } from "./components/ParticipantsPanel";
+
 import { useMeetAudioActivity } from "./hooks/useMeetAudioActivity";
 import { useMeetChat } from "./hooks/useMeetChat";
 import { useMeetDisplayName } from "./hooks/useMeetDisplayName";
@@ -120,7 +120,6 @@ export type MeetsClientProps = {
   autoJoinOnMount?: boolean;
   hideJoinUI?: boolean;
   getRooms?: () => Promise<RoomInfo[]>;
-  getRoomsForRedirect?: ParticipantsPanelGetRooms;
   reactionAssets?: string[];
 };
 
@@ -138,7 +137,6 @@ export default function MeetsClient({
   autoJoinOnMount = false,
   hideJoinUI = false,
   getRooms,
-  getRoomsForRedirect,
   reactionAssets,
 }: MeetsClientProps) {
   const [currentUser, setCurrentUser] = useState<MeetUser | undefined>(user);
@@ -1295,7 +1293,6 @@ export default function MeetsClient({
         setPendingUsers={setPendingUsers}
         resolveDisplayName={resolveDisplayName}
         reactions={reactionEvents}
-        getRoomsForRedirect={getRoomsForRedirect}
         onUserChange={(user) => setCurrentUser(user ?? undefined)}
         onIsAdminChange={setCurrentIsAdmin}
         onPendingUserStale={(userId) => {

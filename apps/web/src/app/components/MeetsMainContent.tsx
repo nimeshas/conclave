@@ -23,7 +23,7 @@ import SystemAudioPlayers from "./SystemAudioPlayers";
 import WhiteboardLayout from "./WhiteboardLayout";
 import ParticipantVideo from "./ParticipantVideo";
 import type { BrowserState } from "../hooks/useSharedBrowser";
-import type { ParticipantsPanelGetRooms } from "./ParticipantsPanel";
+
 import type {
   ChatMessage,
   ConnectionState,
@@ -103,7 +103,6 @@ interface MeetsMainContentProps {
   setPendingUsers: Dispatch<SetStateAction<Map<string, string>>>;
   resolveDisplayName: (userId: string) => string;
   reactions: ReactionEvent[];
-  getRoomsForRedirect?: ParticipantsPanelGetRooms;
   onUserChange: (
     user: { id: string; email: string; name: string } | null,
   ) => void;
@@ -258,7 +257,6 @@ export default function MeetsMainContent({
   setPendingUsers,
   resolveDisplayName,
   reactions,
-  getRoomsForRedirect,
   onUserChange,
   onIsAdminChange,
   onPendingUserStale,
@@ -1042,14 +1040,12 @@ export default function MeetsMainContent({
           socket={socket}
           isAdmin={isAdmin}
           pendingUsers={pendingUsers}
-          roomId={roomId}
           localState={{
             isMuted,
             isCameraOff,
             isHandRaised,
             isScreenSharing,
           }}
-          getRooms={getRoomsForRedirect}
           getDisplayName={resolveDisplayName}
           onPendingUserStale={handlePendingUserStale}
           hostUserId={hostUserId}
