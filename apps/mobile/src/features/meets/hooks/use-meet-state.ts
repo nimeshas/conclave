@@ -42,6 +42,8 @@ export function useMeetState({ initialRoomId }: UseMeetStateOptions) {
   const [isChatLocked, setIsChatLocked] = useState(false);
   const [isTtsDisabled, setIsTtsDisabled] = useState(false);
   const [hostUserId, setHostUserId] = useState<string | null>(null);
+  const [meetingRequiresInviteCode, setMeetingRequiresInviteCode] =
+    useState(false);
   const [webinarConfig, setWebinarConfig] =
     useState<WebinarConfigSnapshot | null>(null);
   const [webinarRole, setWebinarRole] = useState<
@@ -95,6 +97,8 @@ export function useMeetState({ initialRoomId }: UseMeetStateOptions) {
     setIsTtsDisabled,
     hostUserId,
     setHostUserId,
+    meetingRequiresInviteCode,
+    setMeetingRequiresInviteCode,
     webinarConfig,
     setWebinarConfig,
     webinarRole,

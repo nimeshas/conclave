@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type {
+  MeetingConfigSnapshot,
+  MeetingUpdateRequest,
   WebinarConfigSnapshot,
   WebinarLinkResponse,
   WebinarUpdateRequest,
@@ -44,6 +46,11 @@ interface MeetSettingsPanelProps {
   onToggleChatLock?: () => void;
   isTtsDisabled: boolean;
   onToggleTtsDisabled?: () => void;
+  meetingRequiresInviteCode: boolean;
+  onGetMeetingConfig?: () => Promise<MeetingConfigSnapshot | null>;
+  onUpdateMeetingConfig?: (
+    update: MeetingUpdateRequest,
+  ) => Promise<MeetingConfigSnapshot | null>;
   webinarConfig?: WebinarConfigSnapshot | null;
   webinarRole?: "attendee" | "participant" | "host" | null;
   webinarLink?: string | null;
@@ -146,6 +153,9 @@ export default function MeetSettingsPanel({
   onToggleChatLock,
   isTtsDisabled,
   onToggleTtsDisabled,
+  meetingRequiresInviteCode,
+  onGetMeetingConfig,
+  onUpdateMeetingConfig,
   webinarConfig,
   webinarRole,
   webinarLink,
@@ -157,6 +167,8 @@ export default function MeetSettingsPanel({
   onClose,
 }: MeetSettingsPanelProps) {
   const [activeView, setActiveView] = useState<"main" | "webinar">("main");
+  const [meetingInviteCodeInput, setMeetingInviteCodeInput] = useState("");
+  const [isMeetingWorking, setIsMeetingWorking] = useState(false);
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [maxAttendeesInput, setMaxAttendeesInput] = useState(
     String(webinarConfig?.maxAttendees ?? DEFAULT_WEBINAR_CAP),
@@ -179,9 +191,38 @@ export default function MeetSettingsPanel({
     await onGetWebinarConfig();
   }, [onGetWebinarConfig]);
 
+  const refreshMeetingConfig = useCallback(async () => {
+    if (!onGetMeetingConfig) return;
+    await onGetMeetingConfig();
+  }, [onGetMeetingConfig]);
+
   useEffect(() => {
     void refreshWebinarConfig();
   }, [refreshWebinarConfig]);
+
+  useEffect(() => {
+    void refreshMeetingConfig();
+  }, [refreshMeetingConfig]);
+
+  const withMeetingTask = useCallback(
+    async (
+      task: () => Promise<void>,
+      options?: { clearInviteInput?: boolean },
+    ) => {
+      setIsMeetingWorking(true);
+      try {
+        await task();
+        if (options?.clearInviteInput) {
+          setMeetingInviteCodeInput("");
+        }
+      } catch (error) {
+        console.error("Meeting action failed:", error);
+      } finally {
+        setIsMeetingWorking(false);
+      }
+    },
+    [],
+  );
 
   const withWebinarTask = useCallback(
     async (
@@ -201,6 +242,19 @@ export default function MeetSettingsPanel({
       }
     },
     [],
+  );
+
+  const updateMeetingConfig = useCallback(
+    async (update: MeetingUpdateRequest) => {
+      if (!onUpdateMeetingConfig) {
+        throw new Error("Meeting invite code controls are unavailable.");
+      }
+      const next = await onUpdateMeetingConfig(update);
+      if (!next) {
+        throw new Error("Meeting invite code update was rejected.");
+      }
+    },
+    [onUpdateMeetingConfig],
   );
 
   const updateWebinarConfig = useCallback(
@@ -260,70 +314,127 @@ export default function MeetSettingsPanel({
       </div>
 
       {activeView === "main" ? (
-        <div className="rounded-lg border border-[#FEFCD9]/10 bg-black/25">
-          <div className="divide-y divide-[#FEFCD9]/10">
-            <ToggleRow
-              label="Lock meeting"
-              icon={
-                <Lock
-                  className={`h-4 w-4 ${isRoomLocked ? "text-amber-300" : "text-[#FEFCD9]/65"}`}
-                />
-              }
-              isOn={isRoomLocked}
-              tone="warning"
-              onClick={onToggleLock}
-              disabled={!onToggleLock}
-            />
-            <ToggleRow
-              label="Block guests"
-              icon={
-                <ShieldBan
-                  className={`h-4 w-4 ${isNoGuests ? "text-amber-300" : "text-[#FEFCD9]/65"}`}
-                />
-              }
-              isOn={isNoGuests}
-              tone="warning"
-              onClick={onToggleNoGuests}
-              disabled={!onToggleNoGuests}
-            />
-            <ToggleRow
-              label="Lock chat"
-              icon={
-                <MessageSquareLock
-                  className={`h-4 w-4 ${isChatLocked ? "text-amber-300" : "text-[#FEFCD9]/65"}`}
-                />
-              }
-              isOn={isChatLocked}
-              tone="warning"
-              onClick={onToggleChatLock}
-              disabled={!onToggleChatLock}
-            />
-            <ToggleRow
-              label="Disable TTS"
-              icon={
-                <VolumeX
-                  className={`h-4 w-4 ${isTtsDisabled ? "text-amber-300" : "text-[#FEFCD9]/65"}`}
-                />
-              }
-              isOn={isTtsDisabled}
-              tone="warning"
-              onClick={onToggleTtsDisabled}
-              disabled={!onToggleTtsDisabled}
-            />
-            <button
-              type="button"
-              onClick={() => setActiveView("webinar")}
-              className={rowButtonClass}
-            >
-              <span className="inline-flex items-center gap-2 text-[#FEFCD9]">
-                <Users className={`h-4 w-4 ${isWebinarEnabled ? "text-emerald-300" : "text-[#FEFCD9]/65"}`} />
-                <span>Webinar settings</span>
+        <div className="space-y-2">
+          <div className="rounded-lg border border-[#FEFCD9]/10 bg-black/25">
+            <div className="divide-y divide-[#FEFCD9]/10">
+              <ToggleRow
+                label="Lock meeting"
+                icon={
+                  <Lock
+                    className={`h-4 w-4 ${isRoomLocked ? "text-amber-300" : "text-[#FEFCD9]/65"}`}
+                  />
+                }
+                isOn={isRoomLocked}
+                tone="warning"
+                onClick={onToggleLock}
+                disabled={!onToggleLock}
+              />
+              <ToggleRow
+                label="Block guests"
+                icon={
+                  <ShieldBan
+                    className={`h-4 w-4 ${isNoGuests ? "text-amber-300" : "text-[#FEFCD9]/65"}`}
+                  />
+                }
+                isOn={isNoGuests}
+                tone="warning"
+                onClick={onToggleNoGuests}
+                disabled={!onToggleNoGuests}
+              />
+              <ToggleRow
+                label="Lock chat"
+                icon={
+                  <MessageSquareLock
+                    className={`h-4 w-4 ${isChatLocked ? "text-amber-300" : "text-[#FEFCD9]/65"}`}
+                  />
+                }
+                isOn={isChatLocked}
+                tone="warning"
+                onClick={onToggleChatLock}
+                disabled={!onToggleChatLock}
+              />
+              <ToggleRow
+                label="Disable TTS"
+                icon={
+                  <VolumeX
+                    className={`h-4 w-4 ${isTtsDisabled ? "text-amber-300" : "text-[#FEFCD9]/65"}`}
+                  />
+                }
+                isOn={isTtsDisabled}
+                tone="warning"
+                onClick={onToggleTtsDisabled}
+                disabled={!onToggleTtsDisabled}
+              />
+              <button
+                type="button"
+                onClick={() => setActiveView("webinar")}
+                className={rowButtonClass}
+              >
+                <span className="inline-flex items-center gap-2 text-[#FEFCD9]">
+                  <Users className={`h-4 w-4 ${isWebinarEnabled ? "text-emerald-300" : "text-[#FEFCD9]/65"}`} />
+                  <span>Webinar settings</span>
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <StatusBadge isOn={isWebinarEnabled} tone="success" />
+                  <ChevronRight className="h-4 w-4 text-[#FEFCD9]/45" />
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#FEFCD9]/10 bg-black/25 p-2.5">
+            <div className="mb-2 flex items-center justify-between text-[11px] text-[#FEFCD9]/60">
+              <span>Meeting invite code</span>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                  meetingRequiresInviteCode
+                    ? "border-amber-300/40 bg-amber-300/10 text-amber-200"
+                    : "border-[#FEFCD9]/10 text-[#FEFCD9]/40"
+                }`}
+              >
+                {meetingRequiresInviteCode ? "Protected" : "Open"}
               </span>
-              <span className="inline-flex items-center gap-2">
-                <StatusBadge isOn={isWebinarEnabled} tone="success" />
-                <ChevronRight className="h-4 w-4 text-[#FEFCD9]/45" />
-              </span>
-            </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={meetingInviteCodeInput}
+                onChange={(event) =>
+                  setMeetingInviteCodeInput(event.target.value)
+                }
+                className={inputClass}
+                placeholder="Set meeting invite code"
+              />
+              <button
+                type="button"
+                disabled={isMeetingWorking || !meetingInviteCodeInput.trim()}
+                onClick={() =>
+                  void withMeetingTask(
+                    async () => {
+                      await updateMeetingConfig({
+                        inviteCode: meetingInviteCodeInput.trim(),
+                      });
+                    },
+                    { clearInviteInput: true },
+                  )
+                }
+                className={actionButtonClass}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                disabled={isMeetingWorking || !meetingRequiresInviteCode}
+                onClick={() =>
+                  void withMeetingTask(async () => {
+                    await updateMeetingConfig({ inviteCode: null });
+                  })
+                }
+                className={actionButtonClass}
+              >
+                Clear
+              </button>
+            </div>
           </div>
         </div>
       ) : (

@@ -20,6 +20,8 @@ import type {
   JoinMode,
   JoinRoomResponse,
   MeetError,
+  MeetingConfigSnapshot,
+  MeetingUpdateRequest,
   ProducerInfo,
   ProducerType,
   ReactionNotification,
@@ -70,6 +72,7 @@ interface UseMeetSocketOptions {
   joinMode?: JoinMode;
   webinarSignedToken?: string;
   requestWebinarInviteCode?: () => Promise<string | null>;
+  requestMeetingInviteCode?: () => Promise<string | null>;
   ghostEnabled: boolean;
   displayNameInput: string;
   localStream: MediaStream | null;
@@ -95,6 +98,7 @@ interface UseMeetSocketOptions {
   setIsRoomLocked: (value: boolean) => void;
   setIsNoGuests: (value: boolean) => void;
   setIsChatLocked: (value: boolean) => void;
+  setMeetingRequiresInviteCode: (value: boolean) => void;
   isTtsDisabled: boolean;
   setIsTtsDisabled: (value: boolean) => void;
   setActiveScreenShareId: (value: string | null) => void;
@@ -143,6 +147,7 @@ export function useMeetSocket({
   joinMode = "meeting",
   webinarSignedToken,
   requestWebinarInviteCode,
+  requestMeetingInviteCode,
   ghostEnabled,
   displayNameInput,
   localStream,
@@ -166,6 +171,7 @@ export function useMeetSocket({
   setIsRoomLocked,
   setIsNoGuests,
   setIsChatLocked,
+  setMeetingRequiresInviteCode,
   isTtsDisabled,
   setIsTtsDisabled,
   setActiveScreenShareId,
@@ -344,6 +350,7 @@ export function useMeetSocket({
       setIsHandRaised(false);
       setIsNoGuests(false);
       setIsTtsDisabled(false);
+      setMeetingRequiresInviteCode(false);
       setWebinarConfig(null);
       if (resetRoomId) {
         currentRoomIdRef.current = null;
@@ -372,6 +379,7 @@ export function useMeetSocket({
       setWebinarRole,
       setWebinarSpeakerUserId,
       setIsTtsDisabled,
+      setMeetingRequiresInviteCode,
       setWebinarConfig,
       clearReactions,
       stopLocalTrack,
@@ -1217,6 +1225,7 @@ export function useMeetSocket({
         isGhost: boolean;
         joinMode: JoinMode;
         webinarInviteCode?: string;
+        meetingInviteCode?: string;
       }
     ): Promise<"joined" | "waiting"> => {
       const socket = socketRef.current;
@@ -1234,6 +1243,7 @@ export function useMeetSocket({
             displayName: joinOptions.displayName,
             ghost: joinOptions.isGhost,
             webinarInviteCode: joinOptions.webinarInviteCode,
+            meetingInviteCode: joinOptions.meetingInviteCode,
           },
           async (response: JoinRoomResponse | { error: string }) => {
             if ("error" in response) {
@@ -1244,6 +1254,9 @@ export function useMeetSocket({
             if (response.status === "waiting") {
               setConnectionState("waiting");
               setHostUserId(response.hostUserId ?? null);
+              setMeetingRequiresInviteCode(
+                response.meetingRequiresInviteCode ?? false
+              );
               setWebinarRole(response.webinarRole ?? null);
               setWebinarSpeakerUserId(
                 response.existingProducers?.[0]?.producerUserId ?? null
@@ -1282,6 +1295,9 @@ export function useMeetSocket({
               currentRoomIdRef.current = targetRoomId;
               serverRoomIdRef.current = response.roomId ?? targetRoomId;
               setIsRoomLocked(response.isLocked ?? false);
+              setMeetingRequiresInviteCode(
+                response.meetingRequiresInviteCode ?? false
+              );
               setIsTtsDisabled(response.isTtsDisabled ?? false);
               setHostUserId(response.hostUserId ?? null);
               setWebinarRole(response.webinarRole ?? null);
@@ -1365,6 +1381,7 @@ export function useMeetSocket({
       setIsRoomLocked,
       setIsTtsDisabled,
       setHostUserId,
+      setMeetingRequiresInviteCode,
       setWebinarRole,
       setWebinarSpeakerUserId,
       setWebinarConfig,
@@ -2099,6 +2116,15 @@ export function useMeetSocket({
             );
 
             socket.on(
+              "meeting:configChanged",
+              (nextConfig: MeetingConfigSnapshot) => {
+                setMeetingRequiresInviteCode(
+                  Boolean(nextConfig.requiresInviteCode)
+                );
+              }
+            );
+
+            socket.on(
               "webinar:configChanged",
               (
                 config: WebinarConfigSnapshot & {
@@ -2200,6 +2226,7 @@ export function useMeetSocket({
       setIsMuted,
       setIsScreenSharing,
       setIsHandRaised,
+      setMeetingRequiresInviteCode,
       setLocalStream,
       setMeetError,
       setPendingUsers,
@@ -2354,6 +2381,7 @@ export function useMeetSocket({
         isGhost: boolean;
         joinMode: JoinMode;
         webinarInviteCode?: string;
+        meetingInviteCode?: string;
       } = {
         displayName: isHost ? normalizedDisplayName || undefined : undefined,
         isGhost: ghostEnabled,
@@ -2386,30 +2414,46 @@ export function useMeetSocket({
             joinError instanceof Error
               ? joinError.message
               : String(joinError ?? "");
-          const isInviteCodeValidationError =
+          const isMeetingInviteCodeValidationError =
+            /meeting invite code required/i.test(joinMessage) ||
+            /invalid meeting invite code/i.test(joinMessage);
+          const shouldPromptMeetingInviteCode =
+            joinOptions.joinMode !== "webinar_attendee" &&
+            !joinOptions.meetingInviteCode &&
+            isMeetingInviteCodeValidationError &&
+            typeof requestMeetingInviteCode === "function";
+
+          const isWebinarInviteCodeValidationError =
             /webinar invite code required/i.test(joinMessage) ||
             /invalid webinar invite code/i.test(joinMessage);
-          const shouldPromptInviteCode =
+          const shouldPromptWebinarInviteCode =
             joinOptions.joinMode === "webinar_attendee" &&
             !joinOptions.webinarInviteCode &&
-            isInviteCodeValidationError &&
+            isWebinarInviteCodeValidationError &&
             typeof requestWebinarInviteCode === "function";
 
-          if (!shouldPromptInviteCode) {
+          if (!shouldPromptMeetingInviteCode && !shouldPromptWebinarInviteCode) {
             throw joinError;
           }
 
-          const inviteCode = await requestWebinarInviteCode();
+          const inviteCode = shouldPromptMeetingInviteCode
+            ? await requestMeetingInviteCode!()
+            : await requestWebinarInviteCode!();
           if (!inviteCode || !inviteCode.trim()) {
             throw joinError;
           }
 
-          const webinarJoinOptions = {
-            ...joinOptions,
-            webinarInviteCode: inviteCode.trim(),
-          };
-          joinOptionsRef.current = webinarJoinOptions;
-          await joinRoomInternal(targetRoomId, stream, webinarJoinOptions);
+          const retryJoinOptions = shouldPromptMeetingInviteCode
+            ? {
+                ...joinOptions,
+                meetingInviteCode: inviteCode.trim(),
+              }
+            : {
+                ...joinOptions,
+                webinarInviteCode: inviteCode.trim(),
+              };
+          joinOptionsRef.current = retryJoinOptions;
+          await joinRoomInternal(targetRoomId, stream, retryJoinOptions);
         }
       } catch (err) {
         console.error("[Meets] Error joining room:", err);
@@ -2434,6 +2478,7 @@ export function useMeetSocket({
       localStreamRef,
       primeAudioOutput,
       requestMediaPermissions,
+      requestMeetingInviteCode,
       requestWebinarInviteCode,
       refs.abortControllerRef,
       refs.intentionalDisconnectRef,
@@ -2555,6 +2600,57 @@ export function useMeetSocket({
       });
     },
     [socketRef]
+  );
+
+  const getMeetingConfig = useCallback(
+    (): Promise<MeetingConfigSnapshot | null> => {
+      const socket = socketRef.current;
+      if (!socket) return Promise.resolve(null);
+
+      return new Promise((resolve) => {
+        socket.emit(
+          "meeting:getConfig",
+          (response: MeetingConfigSnapshot | { error: string }) => {
+            if ("error" in response) {
+              console.error("[Meets] Failed to fetch meeting config:", response.error);
+              resolve(null);
+              return;
+            }
+            setMeetingRequiresInviteCode(Boolean(response.requiresInviteCode));
+            resolve(response);
+          }
+        );
+      });
+    },
+    [setMeetingRequiresInviteCode, socketRef]
+  );
+
+  const updateMeetingConfig = useCallback(
+    (update: MeetingUpdateRequest): Promise<MeetingConfigSnapshot | null> => {
+      const socket = socketRef.current;
+      if (!socket) return Promise.resolve(null);
+
+      return new Promise((resolve) => {
+        socket.emit(
+          "meeting:updateConfig",
+          update,
+          (
+            response:
+              | { success: boolean; config: MeetingConfigSnapshot }
+              | { error: string }
+          ) => {
+            if ("error" in response) {
+              console.error("[Meets] Failed to update meeting config:", response.error);
+              resolve(null);
+              return;
+            }
+            setMeetingRequiresInviteCode(Boolean(response.config.requiresInviteCode));
+            resolve(response.config);
+          }
+        );
+      });
+    },
+    [setMeetingRequiresInviteCode, socketRef]
   );
 
   const getWebinarConfig = useCallback(
@@ -2705,6 +2801,8 @@ export function useMeetSocket({
     toggleChatLock,
     toggleNoGuests,
     toggleTtsDisabled,
+    getMeetingConfig,
+    updateMeetingConfig,
     getWebinarConfig,
     updateWebinarConfig,
     rotateWebinarLink,

@@ -26,6 +26,8 @@ import type {
   ChatMessage,
   ConnectionState,
   MeetError,
+  MeetingConfigSnapshot,
+  MeetingUpdateRequest,
   Participant,
   ReactionEvent,
   ReactionOption,
@@ -134,11 +136,16 @@ interface MeetsMainContentProps {
   hostUserId: string | null;
   isNetworkOffline: boolean;
   isTtsDisabled: boolean;
+  meetingRequiresInviteCode: boolean;
   webinarConfig?: WebinarConfigSnapshot | null;
   webinarRole?: "attendee" | "participant" | "host" | null;
   webinarSpeakerUserId?: string | null;
   webinarLink?: string | null;
   onSetWebinarLink?: (link: string | null) => void;
+  onGetMeetingConfig?: () => Promise<MeetingConfigSnapshot | null>;
+  onUpdateMeetingConfig?: (
+    update: MeetingUpdateRequest,
+  ) => Promise<MeetingConfigSnapshot | null>;
   onGetWebinarConfig?: () => Promise<WebinarConfigSnapshot | null>;
   onUpdateWebinarConfig?: (
     update: WebinarUpdateRequest,
@@ -280,11 +287,14 @@ export default function MeetsMainContent({
   hostUserId,
   isNetworkOffline,
   isTtsDisabled,
+  meetingRequiresInviteCode,
   webinarConfig,
   webinarRole,
   webinarSpeakerUserId,
   webinarLink,
   onSetWebinarLink,
+  onGetMeetingConfig,
+  onUpdateMeetingConfig,
   onGetWebinarConfig,
   onUpdateWebinarConfig,
   onGenerateWebinarLink,
@@ -911,10 +921,13 @@ export default function MeetsMainContent({
                 isPopoutSupported={isPopoutSupported}
                 onOpenPopout={onOpenPopout}
                 onClosePopout={onClosePopout}
+                meetingRequiresInviteCode={meetingRequiresInviteCode}
                 webinarConfig={webinarConfig}
                 webinarRole={webinarRole}
                 webinarLink={webinarLink}
                 onSetWebinarLink={onSetWebinarLink}
+                onGetMeetingConfig={onGetMeetingConfig}
+                onUpdateMeetingConfig={onUpdateMeetingConfig}
                 onGetWebinarConfig={onGetWebinarConfig}
                 onUpdateWebinarConfig={onUpdateWebinarConfig}
                 onGenerateWebinarLink={onGenerateWebinarLink}

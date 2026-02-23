@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type {
+  MeetingConfigSnapshot,
+  MeetingUpdateRequest,
   ReactionOption,
   WebinarConfigSnapshot,
   WebinarLinkResponse,
@@ -89,6 +91,11 @@ interface MobileControlsBarProps {
   onAudioInputDeviceChange?: (deviceId: string) => void;
   onAudioOutputDeviceChange?: (deviceId: string) => void;
   isObserverMode?: boolean;
+  meetingRequiresInviteCode?: boolean;
+  onGetMeetingConfig?: () => Promise<MeetingConfigSnapshot | null>;
+  onUpdateMeetingConfig?: (
+    update: MeetingUpdateRequest,
+  ) => Promise<MeetingConfigSnapshot | null>;
   webinarConfig?: WebinarConfigSnapshot | null;
   webinarRole?: "attendee" | "participant" | "host" | null;
   webinarLink?: string | null;
@@ -153,6 +160,9 @@ function MobileControlsBar({
   onAudioInputDeviceChange,
   onAudioOutputDeviceChange,
   isObserverMode = false,
+  meetingRequiresInviteCode = false,
+  onGetMeetingConfig,
+  onUpdateMeetingConfig,
   webinarConfig,
   webinarRole,
   webinarLink,
@@ -181,6 +191,10 @@ function MobileControlsBar({
   const lastReactionTimeRef = useRef<number>(0);
   const REACTION_COOLDOWN_MS = 150;
   const [webinarInviteCodeInput, setWebinarInviteCodeInput] = useState("");
+  const [meetingInviteCodeInput, setMeetingInviteCodeInput] = useState("");
+  const [meetingNotice, setMeetingNotice] = useState<string | null>(null);
+  const [meetingError, setMeetingError] = useState<string | null>(null);
+  const [isMeetingWorking, setIsMeetingWorking] = useState(false);
   const [webinarCapInput, setWebinarCapInput] = useState(
     String(webinarConfig?.maxAttendees ?? 500),
   );
@@ -287,8 +301,42 @@ function MobileControlsBar({
 
   useEffect(() => {
     if (!isSettingsSheetOpen || !isAdmin || isObserverMode) return;
+    void onGetMeetingConfig?.();
     void onGetWebinarConfig?.();
-  }, [isAdmin, isObserverMode, isSettingsSheetOpen, onGetWebinarConfig]);
+  }, [
+    isAdmin,
+    isObserverMode,
+    isSettingsSheetOpen,
+    onGetMeetingConfig,
+    onGetWebinarConfig,
+  ]);
+
+  const runMeetingTask = useCallback(
+    async (
+      task: () => Promise<void>,
+      options?: { successMessage?: string; clearInviteInput?: boolean },
+    ) => {
+      setMeetingError(null);
+      setMeetingNotice(null);
+      setIsMeetingWorking(true);
+      try {
+        await task();
+        if (options?.clearInviteInput) {
+          setMeetingInviteCodeInput("");
+        }
+        if (options?.successMessage) {
+          setMeetingNotice(options.successMessage);
+        }
+      } catch (error) {
+        setMeetingError(
+          error instanceof Error ? error.message : "Meeting update failed.",
+        );
+      } finally {
+        setIsMeetingWorking(false);
+      }
+    },
+    [],
+  );
 
   const runWebinarTask = useCallback(
     async (
@@ -846,6 +894,106 @@ function MobileControlsBar({
 
               {isAdmin ? (
                 <section className="space-y-2 rounded-xl border border-[#FEFCD9]/10 bg-black/30 p-3">
+                  <div className="space-y-2 rounded-lg border border-white/10 bg-black/30 p-2.5">
+                    <div className="flex items-center justify-between">
+                      <label
+                        className="text-[10px] text-[#FEFCD9]/45 uppercase tracking-[0.18em]"
+                        style={{ fontFamily: "'PolySans Mono', monospace" }}
+                      >
+                        Meeting
+                      </label>
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                          meetingRequiresInviteCode
+                            ? "border-amber-300/40 bg-amber-300/10 text-amber-200"
+                            : "border-white/10 text-[#FEFCD9]/45"
+                        }`}
+                      >
+                        {meetingRequiresInviteCode ? "Protected" : "Open"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={meetingInviteCodeInput}
+                        onChange={(event) =>
+                          setMeetingInviteCodeInput(event.target.value)
+                        }
+                        placeholder="Invite code (optional)"
+                        className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-[#FEFCD9] outline-none placeholder:text-[#FEFCD9]/30 focus:border-[#FEFCD9]/25"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void runMeetingTask(
+                            async () => {
+                              if (!onUpdateMeetingConfig) {
+                                throw new Error("Meeting controls unavailable.");
+                              }
+                              const code = meetingInviteCodeInput.trim();
+                              if (!code) {
+                                throw new Error("Enter an invite code.");
+                              }
+                              const next = await onUpdateMeetingConfig({
+                                inviteCode: code,
+                              });
+                              if (!next) {
+                                throw new Error("Meeting update rejected.");
+                              }
+                            },
+                            {
+                              successMessage: "Meeting invite code saved.",
+                              clearInviteInput: true,
+                            },
+                          )
+                        }
+                        disabled={
+                          isMeetingWorking ||
+                          !onUpdateMeetingConfig ||
+                          !meetingInviteCodeInput.trim()
+                        }
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs text-[#FEFCD9] transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void runMeetingTask(
+                            async () => {
+                              if (!onUpdateMeetingConfig) {
+                                throw new Error("Meeting controls unavailable.");
+                              }
+                              const next = await onUpdateMeetingConfig({
+                                inviteCode: null,
+                              });
+                              if (!next) {
+                                throw new Error("Meeting update rejected.");
+                              }
+                            },
+                            { successMessage: "Meeting invite code cleared." },
+                          )
+                        }
+                        disabled={
+                          isMeetingWorking ||
+                          !onUpdateMeetingConfig ||
+                          !meetingRequiresInviteCode
+                        }
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs text-[#FEFCD9]/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    {meetingNotice ? (
+                      <p className="text-[11px] text-emerald-300/90">
+                        {meetingNotice}
+                      </p>
+                    ) : null}
+                    {meetingError ? (
+                      <p className="text-[11px] text-[#F95F4A]">{meetingError}</p>
+                    ) : null}
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <label
                       className="text-[10px] text-[#FEFCD9]/45 uppercase tracking-[0.18em]"

@@ -237,6 +237,8 @@ export default function MeetsClient({
     setHostUserId,
     isNetworkOffline,
     setIsNetworkOffline,
+    meetingRequiresInviteCode,
+    setMeetingRequiresInviteCode,
     webinarConfig,
     setWebinarConfig,
     webinarRole,
@@ -605,6 +607,9 @@ export default function MeetsClient({
     null,
   );
   const [isInviteCodePromptOpen, setIsInviteCodePromptOpen] = useState(false);
+  const [inviteCodePromptMode, setInviteCodePromptMode] = useState<
+    "meeting" | "webinar"
+  >("webinar");
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [inviteCodePromptError, setInviteCodePromptError] = useState<
     string | null
@@ -621,6 +626,17 @@ export default function MeetsClient({
   const requestWebinarInviteCode = useCallback(async () => {
     return new Promise<string | null>((resolve) => {
       inviteCodeResolverRef.current = resolve;
+      setInviteCodePromptMode("webinar");
+      setInviteCodeInput("");
+      setInviteCodePromptError(null);
+      setIsInviteCodePromptOpen(true);
+    });
+  }, []);
+
+  const requestMeetingInviteCode = useCallback(async () => {
+    return new Promise<string | null>((resolve) => {
+      inviteCodeResolverRef.current = resolve;
+      setInviteCodePromptMode("meeting");
       setInviteCodeInput("");
       setInviteCodePromptError(null);
       setIsInviteCodePromptOpen(true);
@@ -660,6 +676,7 @@ export default function MeetsClient({
     getJoinInfo,
     joinMode,
     requestWebinarInviteCode,
+    requestMeetingInviteCode,
     ghostEnabled,
     displayNameInput,
     localStream,
@@ -683,6 +700,7 @@ export default function MeetsClient({
     setIsRoomLocked,
     setIsNoGuests,
     setIsChatLocked,
+    setMeetingRequiresInviteCode,
     isTtsDisabled,
     setIsTtsDisabled,
     setActiveScreenShareId,
@@ -760,13 +778,15 @@ export default function MeetsClient({
   }, [isAdminFlag, connectionState, refreshRooms]);
 
   const joinRoomById = socket.joinRoomById;
+  const getMeetingConfig = socket.getMeetingConfig;
   const getWebinarConfig = socket.getWebinarConfig;
 
   useEffect(() => {
     if (connectionState !== "joined") return;
     if (!isAdminFlag) return;
+    void getMeetingConfig?.();
     void getWebinarConfig?.();
-  }, [connectionState, isAdminFlag, getWebinarConfig]);
+  }, [connectionState, isAdminFlag, getMeetingConfig, getWebinarConfig]);
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return;
@@ -948,14 +968,22 @@ export default function MeetsClient({
       {content}
     </AppsProvider>
   );
+  const inviteCodePromptTitle =
+    inviteCodePromptMode === "meeting"
+      ? "Meeting Invite Code"
+      : "Webinar Invite Code";
+  const inviteCodePromptMessage =
+    inviteCodePromptMode === "meeting"
+      ? "Enter the invite code to join this meeting."
+      : "Enter the invite code to join this webinar.";
   const inviteCodePrompt = isInviteCodePromptOpen ? (
     <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/75 px-4">
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-2xl">
         <h2 className="text-sm font-semibold text-[#FEFCD9]">
-          Webinar Invite Code
+          {inviteCodePromptTitle}
         </h2>
         <p className="mt-1 text-xs text-[#FEFCD9]/60">
-          Enter the invite code to join this webinar.
+          {inviteCodePromptMessage}
         </p>
         <input
           value={inviteCodeInput}
@@ -1133,11 +1161,14 @@ export default function MeetsClient({
           onTestSpeaker={handleTestSpeaker}
           hostUserId={hostUserId}
           isNetworkOffline={isNetworkOffline}
+          meetingRequiresInviteCode={meetingRequiresInviteCode}
           webinarConfig={webinarConfig}
           webinarRole={webinarRole}
           webinarSpeakerUserId={webinarSpeakerUserId}
           webinarLink={webinarLink}
           onSetWebinarLink={setWebinarLink}
+          onGetMeetingConfig={socket.getMeetingConfig}
+          onUpdateMeetingConfig={socket.updateMeetingConfig}
           onGetWebinarConfig={socket.getWebinarConfig}
           onUpdateWebinarConfig={socket.updateWebinarConfig}
           onGenerateWebinarLink={socket.generateWebinarLink}
@@ -1294,11 +1325,14 @@ export default function MeetsClient({
         onClosePopout={closePopout}
         hostUserId={hostUserId}
         isNetworkOffline={isNetworkOffline}
+        meetingRequiresInviteCode={meetingRequiresInviteCode}
         webinarConfig={webinarConfig}
         webinarRole={webinarRole}
         webinarSpeakerUserId={webinarSpeakerUserId}
         webinarLink={webinarLink}
         onSetWebinarLink={setWebinarLink}
+        onGetMeetingConfig={socket.getMeetingConfig}
+        onUpdateMeetingConfig={socket.updateMeetingConfig}
         onGetWebinarConfig={socket.getWebinarConfig}
         onUpdateWebinarConfig={socket.updateWebinarConfig}
         onGenerateWebinarLink={socket.generateWebinarLink}

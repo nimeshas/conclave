@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type {
+  MeetingConfigSnapshot,
+  MeetingUpdateRequest,
   ReactionOption,
   WebinarConfigSnapshot,
   WebinarLinkResponse,
@@ -88,10 +90,15 @@ interface ControlsBarProps {
   isPopoutSupported?: boolean;
   onOpenPopout?: () => void;
   onClosePopout?: () => void;
+  meetingRequiresInviteCode?: boolean;
   webinarConfig?: WebinarConfigSnapshot | null;
   webinarRole?: "attendee" | "participant" | "host" | null;
   webinarLink?: string | null;
   onSetWebinarLink?: (link: string | null) => void;
+  onGetMeetingConfig?: () => Promise<MeetingConfigSnapshot | null>;
+  onUpdateMeetingConfig?: (
+    update: MeetingUpdateRequest,
+  ) => Promise<MeetingConfigSnapshot | null>;
   onGetWebinarConfig?: () => Promise<WebinarConfigSnapshot | null>;
   onUpdateWebinarConfig?: (
     update: WebinarUpdateRequest,
@@ -216,10 +223,13 @@ function ControlsBar({
   isPopoutSupported = false,
   onOpenPopout,
   onClosePopout,
+  meetingRequiresInviteCode = false,
   webinarConfig,
   webinarRole,
   webinarLink,
   onSetWebinarLink,
+  onGetMeetingConfig,
+  onUpdateMeetingConfig,
   onGetWebinarConfig,
   onUpdateWebinarConfig,
   onGenerateWebinarLink,
@@ -366,6 +376,9 @@ function ControlsBar({
               onToggleChatLock={onToggleChatLock}
               isTtsDisabled={isTtsDisabled}
               onToggleTtsDisabled={onToggleTtsDisabled}
+              meetingRequiresInviteCode={meetingRequiresInviteCode}
+              onGetMeetingConfig={onGetMeetingConfig}
+              onUpdateMeetingConfig={onUpdateMeetingConfig}
               webinarConfig={webinarConfig}
               webinarRole={webinarRole}
               webinarLink={webinarLink}

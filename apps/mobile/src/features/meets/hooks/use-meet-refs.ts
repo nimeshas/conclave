@@ -58,6 +58,7 @@ export function useMeetRefs() {
     isGhost: boolean;
     joinMode: JoinMode;
     webinarInviteCode?: string;
+    meetingInviteCode?: string;
   }>({
     displayName: undefined,
     isGhost: false,

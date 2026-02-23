@@ -213,6 +213,28 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
             ? true
             : isHostForExistingRoom;
 
+        const meetingInviteCode = data?.meetingInviteCode?.trim() || "";
+        const requiresMeetingInviteCode = room.requiresMeetingInviteCode;
+        const shouldValidateMeetingInviteCode =
+          !isWebinarAttendeeJoin &&
+          !isHost &&
+          requiresMeetingInviteCode &&
+          !wasReconnecting &&
+          !existingClient;
+
+        if (shouldValidateMeetingInviteCode && !meetingInviteCode) {
+          respond(callback, { error: "Meeting invite code required." });
+          return;
+        }
+
+        if (
+          shouldValidateMeetingInviteCode &&
+          !room.verifyMeetingInviteCode(meetingInviteCode)
+        ) {
+          respond(callback, { error: "Invalid meeting invite code." });
+          return;
+        }
+
         if (isHost && !room.hostUserKey) {
           room.hostUserKey = userKey;
         }
@@ -290,6 +312,7 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
             hostUserId: room.getHostUserId(),
             isLocked: room.isLocked,
             isTtsDisabled: room.isTtsDisabled,
+            meetingRequiresInviteCode: room.requiresMeetingInviteCode,
           });
           return;
         }
@@ -331,6 +354,7 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
             hostUserId: room.getHostUserId(),
             isLocked: room.isLocked,
             isTtsDisabled: room.isTtsDisabled,
+            meetingRequiresInviteCode: room.requiresMeetingInviteCode,
           });
           return;
         }
@@ -541,6 +565,7 @@ export const registerJoinRoomHandler = (context: ConnectionContext): void => {
           hostUserId: context.currentRoom.getHostUserId(),
           isLocked: context.currentRoom.isLocked,
           isTtsDisabled: context.currentRoom.isTtsDisabled,
+          meetingRequiresInviteCode: context.currentRoom.requiresMeetingInviteCode,
           webinarRole: context.currentClient.isWebinarAttendee
             ? "attendee"
             : isHost

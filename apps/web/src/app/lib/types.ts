@@ -113,6 +113,7 @@ export interface JoinRoomResponse {
   hostUserId?: string | null;
   isLocked?: boolean;
   isTtsDisabled?: boolean;
+  meetingRequiresInviteCode?: boolean;
   webinarRole?: "attendee" | "participant" | "host";
   isWebinarEnabled?: boolean;
   webinarLocked?: boolean;
@@ -139,6 +140,14 @@ export interface WebinarUpdateRequest {
   maxAttendees?: number;
   inviteCode?: string | null;
   linkSlug?: string | null;
+}
+
+export interface MeetingConfigSnapshot {
+  requiresInviteCode: boolean;
+}
+
+export interface MeetingUpdateRequest {
+  inviteCode?: string | null;
 }
 
 export interface WebinarLinkResponse {

@@ -17,6 +17,8 @@ import { useApps } from "@conclave/apps-sdk";
 import { Pressable, Text, TextInput, View } from "@/tw";
 import { SHEET_COLORS, SHEET_THEME } from "./true-sheet-theme";
 import type {
+  MeetingConfigSnapshot,
+  MeetingUpdateRequest,
   WebinarConfigSnapshot,
   WebinarLinkResponse,
   WebinarUpdateRequest,
@@ -51,6 +53,11 @@ interface SettingsSheetProps {
   onToggleTtsDisabled?: (disabled: boolean) => void;
   onAudioInputDeviceChange?: (deviceId: string) => void;
   onAudioOutputDeviceChange?: (deviceId: string) => void;
+  meetingRequiresInviteCode?: boolean;
+  onGetMeetingConfig?: () => Promise<MeetingConfigSnapshot | null>;
+  onUpdateMeetingConfig?: (
+    update: MeetingUpdateRequest
+  ) => Promise<MeetingConfigSnapshot | null>;
   webinarConfig?: WebinarConfigSnapshot | null;
   webinarLink?: string | null;
   onSetWebinarLink?: (link: string | null) => void;
@@ -234,6 +241,9 @@ export function SettingsSheet({
   onToggleTtsDisabled,
   onAudioInputDeviceChange,
   onAudioOutputDeviceChange,
+  meetingRequiresInviteCode = false,
+  onGetMeetingConfig,
+  onUpdateMeetingConfig,
   webinarConfig,
   webinarLink,
   onSetWebinarLink,
@@ -254,6 +264,10 @@ export function SettingsSheet({
   const [audioDevicesError, setAudioDevicesError] = useState<string | null>(null);
 
   const [webinarExpanded, setWebinarExpanded] = useState(false);
+  const [meetingInviteCodeInput, setMeetingInviteCodeInput] = useState("");
+  const [meetingNotice, setMeetingNotice] = useState<string | null>(null);
+  const [meetingError, setMeetingError] = useState<string | null>(null);
+  const [isMeetingWorking, setIsMeetingWorking] = useState(false);
   const [webinarInviteCodeInput, setWebinarInviteCodeInput] = useState("");
   const [webinarCapInput, setWebinarCapInput] = useState(
     String(webinarConfig?.maxAttendees ?? 500)
@@ -364,8 +378,9 @@ export function SettingsSheet({
 
   useEffect(() => {
     if (!visible || !isAdmin) return;
+    void onGetMeetingConfig?.();
     void onGetWebinarConfig?.();
-  }, [isAdmin, onGetWebinarConfig, visible]);
+  }, [isAdmin, onGetMeetingConfig, onGetWebinarConfig, visible]);
 
   useEffect(() => {
     return () => {
@@ -424,6 +439,33 @@ export function SettingsSheet({
         );
       } finally {
         setIsWebinarWorking(false);
+      }
+    },
+    []
+  );
+
+  const runMeetingTask = useCallback(
+    async (
+      task: () => Promise<void>,
+      options?: { successMessage?: string; clearInviteInput?: boolean }
+    ) => {
+      setMeetingError(null);
+      setMeetingNotice(null);
+      setIsMeetingWorking(true);
+      try {
+        await task();
+        if (options?.clearInviteInput) {
+          setMeetingInviteCodeInput("");
+        }
+        if (options?.successMessage) {
+          setMeetingNotice(options.successMessage);
+        }
+      } catch (error) {
+        setMeetingError(
+          error instanceof Error ? error.message : "Meeting update failed."
+        );
+      } finally {
+        setIsMeetingWorking(false);
       }
     },
     []
@@ -540,6 +582,86 @@ export function SettingsSheet({
                 }
                 disabled={!onToggleTtsDisabled}
               />
+            </View>
+
+            <View style={styles.fieldCard}>
+              <Text style={styles.fieldHeaderText}>Meeting invite code</Text>
+              <View style={styles.fieldRow}>
+                <TextInput
+                  value={meetingInviteCodeInput}
+                  onChangeText={setMeetingInviteCodeInput}
+                  placeholder="Invite code"
+                  placeholderTextColor={SHEET_COLORS.textFaint}
+                  style={styles.input}
+                />
+                <ActionButton
+                  label="Save"
+                  variant="primary"
+                  onPress={() =>
+                    trigger(() => {
+                      void runMeetingTask(
+                        async () => {
+                          if (!onUpdateMeetingConfig) {
+                            throw new Error("Meeting controls unavailable.");
+                          }
+                          const code = meetingInviteCodeInput.trim();
+                          if (!code) {
+                            throw new Error("Enter an invite code.");
+                          }
+                          const next = await onUpdateMeetingConfig({
+                            inviteCode: code,
+                          });
+                          if (!next) {
+                            throw new Error("Meeting update rejected.");
+                          }
+                        },
+                        {
+                          successMessage: "Meeting invite code saved.",
+                          clearInviteInput: true,
+                        }
+                      );
+                    })
+                  }
+                  disabled={
+                    isMeetingWorking ||
+                    !onUpdateMeetingConfig ||
+                    !meetingInviteCodeInput.trim()
+                  }
+                />
+                <ActionButton
+                  label="Clear"
+                  variant="danger"
+                  onPress={() =>
+                    trigger(() => {
+                      void runMeetingTask(
+                        async () => {
+                          if (!onUpdateMeetingConfig) {
+                            throw new Error("Meeting controls unavailable.");
+                          }
+                          const next = await onUpdateMeetingConfig({
+                            inviteCode: null,
+                          });
+                          if (!next) {
+                            throw new Error("Meeting update rejected.");
+                          }
+                        },
+                        { successMessage: "Meeting invite code cleared." }
+                      );
+                    })
+                  }
+                  disabled={
+                    isMeetingWorking ||
+                    !onUpdateMeetingConfig ||
+                    !meetingRequiresInviteCode
+                  }
+                />
+              </View>
+              {meetingNotice ? (
+                <Text style={styles.noticeText}>{meetingNotice}</Text>
+              ) : null}
+              {meetingError ? (
+                <Text style={styles.errorText}>{meetingError}</Text>
+              ) : null}
             </View>
 
             <SectionLabel label="Webinar" icon={<Radio size={12} color={SHEET_COLORS.textMuted} strokeWidth={2} />} />

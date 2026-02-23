@@ -161,6 +161,8 @@ export function MeetScreen({
     setIsTtsDisabled,
     hostUserId,
     setHostUserId,
+    meetingRequiresInviteCode,
+    setMeetingRequiresInviteCode,
     webinarConfig,
     setWebinarConfig,
     webinarRole,
@@ -563,6 +565,9 @@ export function MeetScreen({
   );
   const takeoverResolverRef = useRef<((value: boolean) => void) | null>(null);
   const [isInviteCodePromptOpen, setIsInviteCodePromptOpen] = useState(false);
+  const [inviteCodePromptMode, setInviteCodePromptMode] = useState<
+    "meeting" | "webinar"
+  >("webinar");
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [inviteCodePromptError, setInviteCodePromptError] = useState<
     string | null
@@ -583,6 +588,17 @@ export function MeetScreen({
   const requestWebinarInviteCode = useCallback(async () => {
     return new Promise<string | null>((resolve) => {
       inviteCodeResolverRef.current = resolve;
+      setInviteCodePromptMode("webinar");
+      setInviteCodeInput("");
+      setInviteCodePromptError(null);
+      setIsInviteCodePromptOpen(true);
+    });
+  }, []);
+
+  const requestMeetingInviteCode = useCallback(async () => {
+    return new Promise<string | null>((resolve) => {
+      inviteCodeResolverRef.current = resolve;
+      setInviteCodePromptMode("meeting");
       setInviteCodeInput("");
       setInviteCodePromptError(null);
       setIsInviteCodePromptOpen(true);
@@ -713,6 +729,7 @@ export function MeetScreen({
     setIsRoomLocked,
     setIsNoGuests,
     setIsChatLocked,
+    setMeetingRequiresInviteCode,
     isTtsDisabled,
     setIsTtsDisabled,
     setActiveScreenShareId,
@@ -733,6 +750,7 @@ export function MeetScreen({
       setUnreadCount,
       isChatOpenRef,
     },
+    requestMeetingInviteCode,
     requestWebinarInviteCode,
     isAppActiveRef,
     onSocketReady: setAppsSocket,
@@ -1549,9 +1567,12 @@ export function MeetScreen({
           isAdmin={isAdmin}
           selectedAudioInputDeviceId={selectedAudioInputDeviceId}
           selectedAudioOutputDeviceId={selectedAudioOutputDeviceId}
+          meetingRequiresInviteCode={meetingRequiresInviteCode}
           webinarConfig={webinarConfig}
           webinarLink={webinarLink}
           onSetWebinarLink={setWebinarLink}
+          onGetMeetingConfig={socket.getMeetingConfig}
+          onUpdateMeetingConfig={socket.updateMeetingConfig}
           onGetWebinarConfig={socket.getWebinarConfig}
           onUpdateWebinarConfig={socket.updateWebinarConfig}
           onGenerateWebinarLink={socket.generateWebinarLink}
@@ -1646,10 +1667,14 @@ export function MeetScreen({
         <View className="absolute inset-0 bg-black/75 items-center justify-center px-6">
           <View className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#111111] p-5">
             <Text className="text-base font-semibold text-[#FEFCD9]">
-              Enter invite code
+              {inviteCodePromptMode === "meeting"
+                ? "Meeting invite code"
+                : "Webinar invite code"}
             </Text>
             <Text className="mt-1 text-xs text-[#FEFCD9]/60">
-              This webinar requires an invite code.
+              {inviteCodePromptMode === "meeting"
+                ? "This meeting requires an invite code."
+                : "This webinar requires an invite code."}
             </Text>
             <TextInput
               value={inviteCodeInput}

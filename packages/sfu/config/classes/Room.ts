@@ -6,6 +6,7 @@ import type {
   RtpCapabilities,
   WebRtcTransport,
 } from "mediasoup/types";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   Awareness,
   applyAwarenessUpdate,
@@ -47,6 +48,24 @@ const getAwarenessStateUserId = (state: unknown): string | null => {
   return typeof user.id === "string" ? user.id : null;
 };
 
+const hashInviteCode = (inviteCode: string): string =>
+  createHmac("sha256", config.sfuSecret).update(inviteCode).digest("hex");
+
+const verifyInviteCodeHash = (
+  inviteCode: string,
+  expectedHash: string,
+): boolean => {
+  const candidateHash = hashInviteCode(inviteCode);
+  const expected = Buffer.from(expectedHash, "hex");
+  const candidate = Buffer.from(candidateHash, "hex");
+
+  if (expected.length !== candidate.length) {
+    return false;
+  }
+
+  return timingSafeEqual(expected, candidate);
+};
+
 export class Room {
   public readonly id: string;
   public readonly router: Router;
@@ -74,6 +93,7 @@ export class Room {
   private _isChatLocked: boolean = false;
   private _noGuests: boolean = false;
   private _isTtsDisabled: boolean = false;
+  private _meetingInviteCodeHash: string | null = null;
   public appsState: { activeAppId: string | null; locked: boolean } = {
     activeAppId: null,
     locked: false,
@@ -360,6 +380,37 @@ export class Room {
 
   setTtsDisabled(disabled: boolean): void {
     this._isTtsDisabled = disabled;
+  }
+
+  get requiresMeetingInviteCode(): boolean {
+    return Boolean(this._meetingInviteCodeHash);
+  }
+
+  setMeetingInviteCode(inviteCode: string | null): boolean {
+    const normalizedInviteCode =
+      typeof inviteCode === "string" ? inviteCode.trim() : "";
+    const nextHash = normalizedInviteCode
+      ? hashInviteCode(normalizedInviteCode)
+      : null;
+    if (this._meetingInviteCodeHash === nextHash) {
+      return false;
+    }
+    this._meetingInviteCodeHash = nextHash;
+    return true;
+  }
+
+  verifyMeetingInviteCode(inviteCode: string): boolean {
+    if (!this._meetingInviteCodeHash) {
+      return true;
+    }
+    const normalizedInviteCode = inviteCode.trim();
+    if (!normalizedInviteCode) {
+      return false;
+    }
+    return verifyInviteCodeHash(
+      normalizedInviteCode,
+      this._meetingInviteCodeHash,
+    );
   }
 
   getAdmins(): Admin[] {
@@ -791,6 +842,7 @@ export class Room {
     this.displayNamesByKey.clear();
     this.webinarActiveSpeakerUserId = null;
     this.webinarFeedProducerIds = [];
+    this._meetingInviteCodeHash = null;
   }
 
   scheduleDisconnect(

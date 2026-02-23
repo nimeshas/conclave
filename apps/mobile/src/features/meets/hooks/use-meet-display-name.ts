@@ -23,6 +23,7 @@ interface UseMeetDisplayNameOptions {
     isGhost: boolean;
     joinMode: JoinMode;
     webinarInviteCode?: string;
+    meetingInviteCode?: string;
   }>;
 }
 
