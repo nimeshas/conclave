@@ -112,6 +112,8 @@ export function useMeetMedia({
   >(async () => {});
   const keepAliveOscRef = useRef<OscillatorNode | null>(null);
   const keepAliveGainRef = useRef<GainNode | null>(null);
+  const screenShareStartInFlightRef = useRef(false);
+  const screenShareStartTokenRef = useRef(0);
   const syncPermissionState = useCallback(async () => {
     if (Platform.OS !== "android") {
       setMediaState((prev) => ({
@@ -300,7 +302,7 @@ export function useMeetMedia({
 
   const waitForOutgoingScreenFrames = useCallback(
     async (producer: Producer) => {
-      const timeoutMs = Platform.OS === "ios" ? 7000 : 4500;
+      const timeoutMs = Platform.OS === "ios" ? 10000 : 4500;
       const pollMs = 350;
       const deadline = Date.now() + timeoutMs;
       let seenOutboundStats = false;
@@ -339,6 +341,12 @@ export function useMeetMedia({
       }
 
       if (seenOutboundStats) {
+        if (Platform.OS === "ios") {
+          console.warn(
+            "[Meets] No screen frames observed yet; continuing on iOS."
+          );
+          return;
+        }
         throw new Error("No screen frames were captured.");
       }
       console.warn(
@@ -1453,6 +1461,9 @@ export function useMeetMedia({
 
   const stopScreenShare = useCallback(
     (options?: { notify?: boolean }) => {
+      screenShareStartTokenRef.current += 1;
+      screenShareStartInFlightRef.current = false;
+
       const producer = screenProducerRef.current;
       const producerId = producer?.id ?? null;
       const shouldNotify = options?.notify !== false;
@@ -1514,15 +1525,13 @@ export function useMeetMedia({
     ]
   );
 
-  const toggleScreenShare = useCallback(async () => {
-    if (ghostEnabled) return;
-    if (isScreenSharing) {
-      stopScreenShare({ notify: true });
-      return;
-    }
+  const startScreenShare = useCallback(async () => {
+    if (ghostEnabled) return "blocked" as const;
+    if (isScreenSharing) return "started" as const;
+    if (screenShareStartInFlightRef.current) return "retry" as const;
 
     if (connectionState !== "joined") {
-      return;
+      return "blocked" as const;
     }
 
     if (activeScreenShareId) {
@@ -1531,13 +1540,17 @@ export function useMeetMedia({
         message: "Someone else is already sharing their screen",
         recoverable: true,
       });
-      return;
+      return "blocked" as const;
     }
 
     const transport = producerTransportRef.current;
-    if (!transport) return;
+    if (!transport) return "blocked" as const;
 
+    screenShareStartInFlightRef.current = true;
+    const startToken = ++screenShareStartTokenRef.current;
     let producer: Producer | null = null;
+    let didSetSharing = false;
+
     try {
       if (Platform.OS === "android" && Platform.Version >= 33) {
         const status = await PermissionsAndroid.request(
@@ -1549,11 +1562,15 @@ export function useMeetMedia({
               "Allow notifications to start screen sharing on Android."
             )
           );
-          return;
+          return "blocked" as const;
         }
       }
 
       const stream = await getDisplayMedia();
+      if (screenShareStartTokenRef.current !== startToken) {
+        stream?.getTracks().forEach((streamTrack) => stopLocalTrack(streamTrack));
+        return "blocked" as const;
+      }
       if (!stream) {
         throw new Error("Screen sharing is not available on mobile yet.");
       }
@@ -1564,7 +1581,7 @@ export function useMeetMedia({
       }
       track.enabled = true;
       screenShareStreamRef.current = stream;
-      if (track && "contentHint" in track) {
+      if ("contentHint" in track) {
         track.contentHint = "detail";
       }
 
@@ -1574,20 +1591,55 @@ export function useMeetMedia({
         appData: { type: "screen" as ProducerType },
       });
 
+      if (screenShareStartTokenRef.current !== startToken) {
+        try {
+          producer.close();
+        } catch {}
+        if (screenProducerRef.current?.id === producer.id) {
+          screenProducerRef.current = null;
+        }
+        stream.getTracks().forEach((streamTrack) => stopLocalTrack(streamTrack));
+        screenShareStreamRef.current = null;
+        return "blocked" as const;
+      }
+
       track.onended = () => {
         stopScreenShare({ notify: true });
       };
 
       screenProducerRef.current = producer;
-      await waitForOutgoingScreenFrames(producer);
+      setScreenShareStream(stream);
+      setIsScreenSharing(true);
+      didSetSharing = true;
+
+      try {
+        await waitForOutgoingScreenFrames(producer);
+      } catch (err) {
+        const message =
+          typeof err === "string"
+            ? err
+            : (err as { message?: string })?.message;
+        if (
+          !(
+            Platform.OS === "ios" &&
+            message?.includes("No screen frames were captured")
+          )
+        ) {
+          throw err;
+        }
+      }
+
+      if (screenShareStartTokenRef.current !== startToken) {
+        stopScreenShare({ notify: false });
+        return "blocked" as const;
+      }
 
       if (connectionState !== "joined") {
         stopScreenShare({ notify: false });
-        return;
+        return "blocked" as const;
       }
 
-      setScreenShareStream(stream);
-      setIsScreenSharing(true);
+      return "started" as const;
     } catch (err) {
       if (producer) {
         try {
@@ -1602,8 +1654,12 @@ export function useMeetMedia({
           .getTracks()
           .forEach((track) => stopLocalTrack(track));
         screenShareStreamRef.current = null;
-        setScreenShareStream(null);
       }
+      if (didSetSharing) {
+        setScreenShareStream(null);
+        setIsScreenSharing(false);
+      }
+
       if (
         err &&
         typeof err === "object" &&
@@ -1613,7 +1669,7 @@ export function useMeetMedia({
         const errorName = String((err as { name?: string }).name);
         if (errorName === "NotAllowedError" || errorName === "AbortError") {
           console.log("[Meets] Screen share cancelled or not ready");
-          return;
+          return "retry" as const;
         }
       }
 
@@ -1623,28 +1679,61 @@ export function useMeetMedia({
           : (err as { message?: string })?.message;
       if (message?.includes("AbortError")) {
         console.log("[Meets] Screen share cancelled or not ready");
-        return;
+        return "retry" as const;
+      }
+
+      if (message?.includes("ended before capture started")) {
+        console.log("[Meets] Screen share ended before capture started");
+        return "retry" as const;
+      }
+
+      const normalizedMessage = message?.toLowerCase() ?? "";
+      if (
+        normalizedMessage.includes("already") &&
+        normalizedMessage.includes("screen") &&
+        normalizedMessage.includes("share")
+      ) {
+        setMeetError({
+          code: "MEDIA_ERROR",
+          message:
+            "Screen sharing is already active in iOS. Stop it in Control Center and try again.",
+          recoverable: true,
+        });
+        return "blocked" as const;
       }
 
       console.error("[Meets] Error starting screen share:", err);
       setMeetError(createMeetError(err, "MEDIA_ERROR"));
+      return "blocked" as const;
+    } finally {
+      screenShareStartInFlightRef.current = false;
     }
   }, [
     ghostEnabled,
     isScreenSharing,
-    activeScreenShareId,
-    setIsScreenSharing,
     connectionState,
+    activeScreenShareId,
     producerTransportRef,
-    screenProducerRef,
-    socketRef,
-    setScreenShareStream,
+    getDisplayMedia,
     screenShareStreamRef,
-    setMeetError,
+    screenProducerRef,
     stopLocalTrack,
     stopScreenShare,
+    setMeetError,
+    setScreenShareStream,
+    setIsScreenSharing,
     waitForOutgoingScreenFrames,
   ]);
+
+  const toggleScreenShare = useCallback(async () => {
+    if (ghostEnabled) return;
+    if (isScreenSharing) {
+      stopScreenShare({ notify: true });
+      return;
+    }
+
+    await startScreenShare();
+  }, [ghostEnabled, isScreenSharing, startScreenShare, stopScreenShare]);
 
   useEffect(() => {
     if (!isScreenSharing) return;
@@ -1721,6 +1810,7 @@ export function useMeetMedia({
     updateVideoQualityRef,
     toggleMute,
     toggleCamera,
+    startScreenShare,
     toggleScreenShare,
     stopScreenShare,
     stopLocalTrack,
