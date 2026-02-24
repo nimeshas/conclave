@@ -28,6 +28,7 @@ fi
 
 VERSION_NAME="${ANDROID_VERSION_NAME}"
 VERSION_CODE="${ANDROID_VERSION_CODE}"
+BUILD_NUMBER="${IOS_BUILD_NUMBER:-${ANDROID_VERSION_CODE}}"
 KEYSTORE_PATH="${ANDROID_KEYSTORE_PATH/#\~/$HOME}"
 KEY_ALIAS="${ANDROID_KEYSTORE_ALIAS}"
 KEYSTORE_PASSWORD="${ANDROID_KEYSTORE_PASSWORD}"
@@ -42,7 +43,7 @@ if [[ ! -f "${KEYSTORE_PATH}" ]]; then
   exit 1
 fi
 
-export APP_JSON VERSION_NAME VERSION_CODE GRADLE_FILE
+export APP_JSON VERSION_NAME VERSION_CODE BUILD_NUMBER GRADLE_FILE
 python3 - <<'PY'
 import json
 import os
@@ -50,12 +51,14 @@ import os
 app_json = os.environ["APP_JSON"]
 version = os.environ["VERSION_NAME"]
 version_code = int(os.environ["VERSION_CODE"])
+build_number = os.environ["BUILD_NUMBER"]
 
 with open(app_json, "r", encoding="utf-8") as f:
     data = json.load(f)
 
 data["expo"]["version"] = version
 data["expo"]["android"]["versionCode"] = version_code
+data["expo"]["ios"]["buildNumber"] = str(build_number)
 
 with open(app_json, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)
