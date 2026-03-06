@@ -93,7 +93,7 @@
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
     <key>RTCAppGroupIdentifier</key>
-    <string>group.com.acmvit.conclave</string>
+    <string>group.com.acmvit.conclave.screenshare</string>
     <key>RTCScreenSharingExtension</key>
     <string>com.acmvit.conclave.ScreenShareExtension</string>
   </dict>
