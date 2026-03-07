@@ -2,6 +2,7 @@
 
 import { Ghost, Hand, MicOff } from "lucide-react";
 import { memo, useEffect, useRef } from "react";
+import { useSmartParticipantOrder } from "../hooks/useSmartParticipantOrder";
 import type { Participant } from "../lib/types";
 import { isSystemUserId } from "../lib/utils";
 import ParticipantVideo from "./ParticipantVideo";
@@ -56,8 +57,11 @@ function GridLayout({
     }
   }, [localStream]);
 
-  const visibleParticipants = Array.from(participants.values()).filter(
-    (participant) => !isSystemUserId(participant.userId)
+  const visibleParticipants = useSmartParticipantOrder(
+    Array.from(participants.values()).filter(
+      (participant) => !isSystemUserId(participant.userId)
+    ),
+    activeSpeakerId
   );
   const totalParticipants = visibleParticipants.length + 1;
 
@@ -80,11 +84,14 @@ function GridLayout({
   const localSpeakerHighlight = isLocalActiveSpeaker 
     ? "speaking" 
     : "";
+  const localHandRaisedHighlight = isHandRaised
+    ? "border-amber-400/45 shadow-[0_0_22px_rgba(251,191,36,0.24)]"
+    : "";
 
   return (
     <div className={`flex-1 grid ${gridClass} gap-3 overflow-auto p-4`}>
       <div
-        className={`acm-video-tile ${localSpeakerHighlight}`}
+        className={`acm-video-tile ${localSpeakerHighlight} ${localHandRaisedHighlight}`}
         style={{ fontFamily: "'PolySans Trial', sans-serif" }}
       >
         <video

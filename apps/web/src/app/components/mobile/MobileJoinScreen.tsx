@@ -54,6 +54,7 @@ interface MobileJoinScreenProps {
   onDismissMeetError?: () => void;
   onRetryMedia?: () => void;
   onTestSpeaker?: () => void;
+  onTestHandRaiseSound?: () => void;
 }
 
 function MobileJoinScreen({
@@ -79,6 +80,7 @@ function MobileJoinScreen({
   onDismissMeetError,
   onRetryMedia,
   onTestSpeaker,
+  onTestHandRaiseSound,
 }: MobileJoinScreenProps) {
   const normalizedRoomId =
     roomId === "undefined" || roomId === "null" ? "" : roomId;
@@ -599,14 +601,27 @@ function MobileJoinScreen({
             />
             Camera {isCameraOn ? "On" : "Off"}
           </div>
-          {onTestSpeaker && (
-            <button
-              type="button"
-              onClick={onTestSpeaker}
-              className="ml-auto flex items-center gap-2 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-full px-3 py-1 text-[#FEFCD9]/70 hover:text-[#FEFCD9] hover:border-[#FEFCD9]/30 transition-colors"
-            >
-              Test speaker
-            </button>
+          {(onTestSpeaker || onTestHandRaiseSound) && (
+            <div className="ml-auto flex items-center gap-2">
+              {onTestSpeaker && (
+                <button
+                  type="button"
+                  onClick={onTestSpeaker}
+                  className="flex items-center gap-2 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-full px-3 py-1 text-[#FEFCD9]/70 hover:text-[#FEFCD9] hover:border-[#FEFCD9]/30 transition-colors"
+                >
+                  Test speaker
+                </button>
+              )}
+              {onTestHandRaiseSound && (
+                <button
+                  type="button"
+                  onClick={onTestHandRaiseSound}
+                  className="flex items-center gap-2 bg-[#1a1a1a] border border-[#FEFCD9]/10 rounded-full px-3 py-1 text-[#FEFCD9]/70 hover:text-[#FEFCD9] hover:border-[#FEFCD9]/30 transition-colors"
+                >
+                  Test hand raise
+                </button>
+              )}
+            </div>
           )}
         </div>
         {!isRoutedRoom && (

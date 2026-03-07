@@ -132,6 +132,9 @@ function ParticipantVideo({
   const speakerHighlight = isActiveSpeaker 
     ? "speaking" 
     : "";
+  const handRaisedHighlight = participant.isHandRaised
+    ? "border-amber-400/45 shadow-[0_0_22px_rgba(251,191,36,0.24)]"
+    : "";
 
   return (
     <div
@@ -145,6 +148,8 @@ function ParticipantVideo({
           ? "animate-participant-leave"
           : ""
       } ${speakerHighlight} ${
+        handRaisedHighlight
+      } ${
         isAdmin && onAdminClick ? "cursor-pointer hover:border-[#F95F4A]/40" : ""
       }`}
       style={{ fontFamily: "'PolySans Trial', sans-serif" }}

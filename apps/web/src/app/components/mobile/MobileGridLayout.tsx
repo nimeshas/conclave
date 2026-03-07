@@ -69,13 +69,17 @@ function MobileGridLayout({
 
   const speakerRing = (isActive: boolean) =>
     isActive ? "ring-2 ring-[#F95F4A]" : "";
+  const handRaisedRing = (isRaised: boolean) =>
+    isRaised
+      ? "ring-2 ring-amber-400/70 shadow-[0_0_20px_rgba(251,191,36,0.24)]"
+      : "";
   const maxLabelLength = totalCount <= 2 ? 16 : totalCount <= 4 ? 12 : 10;
 
   return (
     <div className={`w-full h-full grid ${getGridClass()} gap-1.5 p-2 auto-rows-fr`}>
       {/* Local video tile */}
       <div
-        className={`relative bg-[#1a1a1a] rounded-xl overflow-hidden ${speakerRing(isLocalActiveSpeaker)}`}
+        className={`relative bg-[#1a1a1a] rounded-xl overflow-hidden ${speakerRing(isLocalActiveSpeaker)} ${handRaisedRing(isHandRaised)}`}
       >
         <video
           ref={localVideoRef}
@@ -209,10 +213,13 @@ const ParticipantTile = memo(function ParticipantTile({
 
   const showPlaceholder = !participant.videoStream || participant.isCameraOff;
   const speakerRing = isActiveSpeaker ? "ring-2 ring-[#F95F4A]" : "";
+  const handRaisedRing = participant.isHandRaised
+    ? "ring-2 ring-amber-400/70 shadow-[0_0_20px_rgba(251,191,36,0.24)]"
+    : "";
 
   return (
     <div
-      className={`relative bg-[#1a1a1a] rounded-xl overflow-hidden ${speakerRing}`}
+      className={`relative bg-[#1a1a1a] rounded-xl overflow-hidden ${speakerRing} ${handRaisedRing}`}
     >
       <video
         ref={videoRef}

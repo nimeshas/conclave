@@ -26,6 +26,7 @@ import { useMeetChat } from "./hooks/useMeetChat";
 import { useMeetDisplayName } from "./hooks/useMeetDisplayName";
 import { useMeetGhostMode } from "./hooks/useMeetGhostMode";
 import { useMeetHandRaise } from "./hooks/useMeetHandRaise";
+import { useMeetHandRaiseSound } from "./hooks/useMeetHandRaiseSound";
 import { useMeetLifecycle } from "./hooks/useMeetLifecycle";
 import { useMeetMedia } from "./hooks/useMeetMedia";
 import { useMeetMediaSettings } from "./hooks/useMeetMediaSettings";
@@ -350,12 +351,25 @@ export default function MeetsClient({
     playNotificationSound("join");
   }, [playNotificationSound, primeAudioOutput]);
 
+  const handleTestHandRaiseSound = useCallback(() => {
+    primeAudioOutput();
+    playNotificationSound("handRaise");
+  }, [playNotificationSound, primeAudioOutput]);
+
   const { toggleHandRaised, setHandRaisedState } = useMeetHandRaise({
     isHandRaised,
     setIsHandRaised,
     isHandRaisedRef: refs.isHandRaisedRef,
     ghostEnabled,
     socketRef: refs.socketRef,
+  });
+
+  useMeetHandRaiseSound({
+    participants,
+    connectionState,
+    currentUserId: userId,
+    isHandRaised,
+    playNotificationSound,
   });
 
   useEffect(() => {
@@ -763,6 +777,7 @@ export default function MeetsClient({
           onDismissMeetError={() => setMeetError(null)}
           onRetryMedia={handleRetryMedia}
           onTestSpeaker={handleTestSpeaker}
+          onTestHandRaiseSound={handleTestHandRaiseSound}
           hostUserId={hostUserId}
         />
       </div>
@@ -895,6 +910,7 @@ export default function MeetsClient({
         onDismissMeetError={() => setMeetError(null)}
         onRetryMedia={handleRetryMedia}
         onTestSpeaker={handleTestSpeaker}
+        onTestHandRaiseSound={handleTestHandRaiseSound}
         isPopoutActive={isPopoutActive}
         isPopoutSupported={isPopoutSupported}
         onOpenPopout={openPopout}

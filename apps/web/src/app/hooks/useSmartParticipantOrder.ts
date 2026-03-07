@@ -8,7 +8,9 @@ interface UseSmartParticipantOrderOptions {
   minSwitchIntervalMs?: number;
 }
 
-export function useSmartParticipantOrder<T extends { userId: string }>(
+export function useSmartParticipantOrder<
+  T extends { userId: string; isHandRaised?: boolean }
+>(
   participants: readonly T[],
   activeSpeakerId: string | null,
   options: UseSmartParticipantOrderOptions = {}
@@ -25,6 +27,8 @@ export function useSmartParticipantOrder<T extends { userId: string }>(
   const candidateSinceRef = useRef(0);
   const lastSwitchAtRef = useRef(0);
   const promoteTimeoutRef = useRef<number | null>(null);
+  const previousRaisedMapRef = useRef<Map<string, boolean>>(new Map());
+  const raisedOrderRef = useRef<string[]>([]);
 
   const clearPromoteTimeout = () => {
     if (promoteTimeoutRef.current) {
@@ -58,6 +62,34 @@ export function useSmartParticipantOrder<T extends { userId: string }>(
       setFeaturedSpeakerId(null);
     }
   }, [participantIdsKey]);
+
+  useEffect(() => {
+    const nextRaisedMap = new Map<string, boolean>();
+    const currentIds = new Set(participants.map((participant) => participant.userId));
+
+    raisedOrderRef.current = raisedOrderRef.current.filter((userId) =>
+      currentIds.has(userId)
+    );
+
+    participants.forEach((participant) => {
+      const userId = participant.userId;
+      const isRaised = Boolean(participant.isHandRaised);
+      const wasRaised = previousRaisedMapRef.current.get(userId) ?? false;
+      nextRaisedMap.set(userId, isRaised);
+
+      if (isRaised) {
+        if (!wasRaised && !raisedOrderRef.current.includes(userId)) {
+          raisedOrderRef.current.push(userId);
+        }
+      } else {
+        raisedOrderRef.current = raisedOrderRef.current.filter(
+          (raisedUserId) => raisedUserId !== userId
+        );
+      }
+    });
+
+    previousRaisedMapRef.current = nextRaisedMap;
+  }, [participants]);
 
   useEffect(() => {
     clearPromoteTimeout();
@@ -108,8 +140,25 @@ export function useSmartParticipantOrder<T extends { userId: string }>(
     };
   }, [activeSpeakerId, participantIdsKey, promoteDelayMs, minSwitchIntervalMs]);
 
-  return useMemo(
-    () => prioritizeActiveSpeaker(participants, featuredSpeakerId),
-    [participants, featuredSpeakerId]
-  );
+  return useMemo(() => {
+    const raisedSet = new Set(
+      participants
+        .filter((participant) => participant.isHandRaised)
+        .map((participant) => participant.userId)
+    );
+
+    const raisedParticipants = raisedOrderRef.current
+      .map((userId) => participants.find((participant) => participant.userId === userId))
+      .filter((participant): participant is T => Boolean(participant))
+      .filter((participant) => raisedSet.has(participant.userId));
+
+    const nonRaisedParticipants = participants.filter(
+      (participant) => !raisedSet.has(participant.userId)
+    );
+
+    return [
+      ...raisedParticipants,
+      ...prioritizeActiveSpeaker(nonRaisedParticipants, featuredSpeakerId),
+    ];
+  }, [participants, featuredSpeakerId]);
 }
