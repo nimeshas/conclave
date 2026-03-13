@@ -520,6 +520,11 @@ export function WhiteboardCanvas({
   }, [awareness]);
 
   useEffect(() => {
+    if (tool !== "pan") return;
+    clearCursor();
+  }, [clearCursor, tool]);
+
+  useEffect(() => {
     return () => {
       if (moveRafRef.current !== null) {
         cancelAnimationFrame(moveRafRef.current);
@@ -828,6 +833,7 @@ export function WhiteboardCanvas({
         commitEditing();
       }
       if (tool === "pan") {
+        clearCursor();
         onPanStart?.(event.clientX, event.clientY);
         return;
       }
@@ -894,6 +900,7 @@ export function WhiteboardCanvas({
     },
     [
       commitEditing,
+      clearCursor,
       editingElementId,
       elements,
       locked,
@@ -970,6 +977,7 @@ export function WhiteboardCanvas({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     if (tool === "pan") {
+      clearCursor();
       onPanEnd?.();
       return;
     }
@@ -998,12 +1006,13 @@ export function WhiteboardCanvas({
   const handlePointerLeave = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (tool === "pan") {
+        clearCursor();
         onPanEnd?.();
         return;
       }
       handlePointerUp(event);
     },
-    [handlePointerUp, tool, onPanEnd]
+    [clearCursor, handlePointerUp, tool, onPanEnd]
   );
 
   const handleWheel = useCallback(
